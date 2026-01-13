@@ -1,0 +1,237 @@
+/* style.css - Grafické rozhranie Engee 3D */
+
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    background: #000; 
+}
+
+#hud {
+    position: fixed; 
+    top: 20px; 
+    left: 20px; 
+    z-index: 1000; 
+    font-family: 'Courier New', monospace;
+}
+
+/* Energetické bary */
+.bar-container {
+    width: 200px; 
+    height: 18px; 
+    border: 2px solid #44ff41; 
+    padding: 2px; 
+    background: rgba(0,0,0,0.5);
+    margin-bottom: 5px;
+}
+
+.acc-container {
+    width: 200px; 
+    height: 10px; 
+    border: 1px solid #00ffff; 
+    padding: 1px; 
+    background: rgba(0,0,0,0.5);
+}
+
+/* Texty a popisky */
+.label-power { color: #44ff41; font-weight: bold; letter-spacing: 2px; font-size: 14px; margin-bottom: 5px; }
+.label-acc { color: #00ffff; font-weight: bold; letter-spacing: 1px; font-size: 12px; margin-top: 20px; margin-bottom: 5px; }
+.status-text { font-size: 12px; margin-top: 5px; }
+
+/* Sekcia mobilného statusu */
+.neural-link-panel {
+    margin-top: 20px; 
+    border-top: 1px solid rgba(0,255,255,0.1); 
+    padding-top: 15px; 
+    text-align: center;
+}
+.neural-label { color: #444; font-size: 8px; letter-spacing: 2px; margin-bottom: 8px; text-transform: uppercase; }
+
+/* --- ENGEE AI UI --- */
+
+/* Hlavný kontajner v ľavom hornom rohu */
+/* Hlavný kontajner v pravom hornom rohu */
+/* --- ENGEE AI UI - UPRAVENÁ VERZIA --- */
+
+#angie-ui {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    z-index: 2000;
+    /* Dôležité: 'auto' umožní klikanie */
+    pointer-events: auto; 
+    cursor: pointer;
+    transition: all 0.5s ease;
+}
+
+/* Zväčšený a krajší rámček avatara */
+#angie-avatar {
+    width: 120px; /* Zväčšili sme z 90px */
+    height: 120px;
+    border: 3px solid #00ffff;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.6), inset 0 0 15px rgba(0, 255, 255, 0.4);
+    overflow: hidden;
+    position: relative;
+    clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%); /* Skosené rohy */
+}
+
+/* Väčšia krabička s textom a efektom skla */
+#angie-content {
+    margin-right: 20px;
+    background: linear-gradient(135deg, rgba(0, 20, 30, 0.95) 0%, rgba(0, 5, 10, 0.9) 100%);
+    border-right: 5px solid #00ffff;
+    padding: 20px 25px;
+    min-width: 300px;
+    max-width: 450px;
+    box-shadow: 10px 10px 30px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px); /* Efekt rozmazaného skla */
+}
+
+#angie-name {
+    color: #00ffff;
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+#angie-text {
+    font-family: 'Courier New', monospace;
+    color: #e0ffff;
+    font-size: 16px; /* Väčšie písmo pre lepšiu čitateľnosť */
+    line-height: 1.6;
+}
+
+/* Štýl pre nápovedu na kliknutie */
+.click-hint {
+    display: block;
+    margin-top: 15px;
+    font-size: 11px;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    animation: pulse 1.5s infinite;
+}
+
+/* Animácia pulzovania pre nápovedu */
+@keyframes pulse {
+    0% { opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { opacity: 0.3; }
+}
+
+.hidden { opacity: 0 !important; transform: translateX(50px); }
+#engee-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+/* --- ŠTÝLOVÉ SCI-FI TLAČIDLO PRE ENGEE --- */
+
+/* --- FINÁLNE SCI-FI TLAČIDLO SO SKOSENÝM RÁMIKOM --- */
+
+/* Hlavný kontajner tlačidla - drží len text a veľkosť */
+.angie-next-btn {
+    position: relative;
+    /* Zrušíme všetky staré pozadia a rámiky */
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    
+    padding: 12px 35px; /* Priestor pre text */
+    color: #00ffff;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: bold;
+    font-size: 14px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    z-index: 5; /* Text musí byť úplne navrchu */
+    transition: color 0.3s ease;
+}
+
+/* --- VRSTVA 1: "RÁMIK" (Spodná modrá vrstva) --- */
+/* Toto vytvorí plný modrý tvar v pozadí */
+.angie-next-btn::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0; /* Roztiahnuť na celú plochu */
+    z-index: -2; /* Posunúť úplne dozadu */
+    background: #00ffff; /* Farba rámika */
+    
+    /* Tvar so skosenými rohmi */
+    clip-path: polygon(0 0, 85% 0, 100% 30%, 100% 100%, 15% 100%, 0 70%);
+    
+    /* Žiara okolo celého tlačidla */
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+/* --- VRSTVA 2: "VÝPLŇ" (Vrchná tmavá vrstva) --- */
+/* Toto je tmavá vrstva, ktorá je o 2px menšia z každej strany,
+   čím odhalí spodnú modrú vrstvu a vytvorí efekt rámika */
+.angie-next-btn::after {
+    content: "";
+    position: absolute;
+    /* Týmito číslami nastavuješ hrúbku rámika (teraz 2px) */
+    top: 2px; left: 2px; right: 2px; bottom: 2px;
+    z-index: -1; /* Za textom, ale pred spodnou vrstvou */
+    background: rgba(0, 15, 25, 0.9); /* Tmavá výplň */
+    
+    /* MUSÍ MAŤ ROVNAKÝ TVAR AKO SPODNÁ VRSTVA */
+    clip-path: polygon(0 0, 85% 0, 100% 30%, 100% 100%, 15% 100%, 0 70%);
+    transition: all 0.3s ease;
+}
+
+/* --- EFEKTY PRI PREJDENÍ MYŠOU (Hover) --- */
+.angie-next-btn:hover {
+    color: white; /* Text zbelie */
+}
+
+/* Spodná vrstva (rámik) zmení farbu a žiaru */
+.angie-next-btn:hover::before {
+    background: #ffffff; /* Rámik zbelie */
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.9); /* Silná modrá žiara */
+}
+
+/* Vrchná vrstva (výplň) sa zosvetlí */
+.angie-next-btn:hover::after {
+    background: rgba(0, 255, 255, 0.2);
+}
+/* Kontajner pre tlačidlá dialógu */
+.angie-btn-container {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column; /* Tlačidlá budú v stĺpci pod sebou */
+    gap: 12px;              /* Medzera medzi tlačidlami */
+    width: 100%;
+}
+
+/* Úprava tlačidla pre zoznam možností */
+.angie-next-btn {
+    text-align: left;       /* Text v možnostiach bude zarovnaný doľava */
+    padding: 12px 20px;
+    width: fit-content;     /* Tlačidlo sa prispôsobí dĺžke textu */
+    min-width: 150px;
+}
+/* Štýl pre možnosti, ktoré už hráč videl */
+.angie-next-btn.visited {
+    color: rgba(0, 255, 255, 0.3); /* Slabšia modrá */
+    border-color: rgba(0, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+}
+/* Štýl pre zakázané (vysivené) tlačidlo v dialógu */
+.angie-next-btn.btn-disabled {
+    opacity: 0.3;              /* Tlačidlo bude polopriehľadné */
+    cursor: not-allowed;       /* Zmení kurzor na "zakázané" */
+    border-color: #555 !important;
+    color: #888 !important;
+    box-shadow: none !important; /* Odstránime žiarenie */
+    background: rgba(80, 80, 80, 0.2) !important;
+}
