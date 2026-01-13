@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Engee 3D - Modular System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="hud">
+    <div class="label-power">UNIT_POWER (BASE_BATTERY)</div>
+    <div class="bar-container">
+        <div id="energy-fill" style="width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+    </div>
+    <div id="energy-text" class="status-text" style="color: #44ff41;">NAČÍTAVAM...</div>
+
+    <div id="sync-indicator" style="color: #44ff41; font-size: 9px; margin-top: 10px; opacity: 0.5;">STATUS: SYNC_READY</div>
+
+    <div id="acc-section">
+        <div class="label-acc">EXT_ACCUMULATOR (STEPS)</div>
+        <div class="acc-container">
+            <div id="acc-fill" style="width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+        </div>
+        <div id="acc-text" class="status-text" style="color: #00ffff;">0 UNITS (READY TO TRANSFER)</div>
+        <button id="transfer-btn" style="width: 100%; padding: 12px; margin-top: 15px; background: linear-gradient(45deg, rgba(0, 170, 255, 0.3), rgba(0, 255, 255, 0.3)); color: #e0ffff; border: 2px solid #00f2fe; border-radius: 4px; box-shadow: 0 0 15px rgba(0, 242, 254, 0.5); cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; transition: all 0.3s ease;">
+            TRANSFER TO MAIN SYSTEM
+        </button>
+    </div>
+
+    <div class="neural-link-panel">
+        <div class="neural-label">Neural_Link_Status</div>
+        <div id="mobile-service-status" style="font-size: 10px; font-weight: bold; padding: 6px 15px; border: 1px solid #ff4444; border-radius: 2px; display: inline-block; min-width: 140px; transition: all 0.5s ease;">
+            MOBILE_SYSTEM: OFFLINE
+        </div>
+    </div>
+</div>
+
+<div id="angie-ui" class="hidden">
+    <div id="angie-avatar">
+        <canvas id="engee-canvas"></canvas> 
+    </div>
+    <div id="angie-content">
+        <div id="angie-name">ENGEE // Palubná AI</div>
+        <div id="angie-text"></div>
+    </div>
+</div>
+
+<script type="importmap">
+    { 
+        "imports": { 
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"
+        } 
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { ENGEE_DIALOGUES } from './dialogues.js';
+    import { speak } from './angie.js'; // Toto "privezie" funkciu rozprávania
+    import { db, watchRoom, watchItems, watchPlayer, transferEnergy, markDialogueAsSeen, performRepairInDB, setupChargerInDB, performChargerRepairInDB } from './database.js';
+    import { setupControls, updateMovement } from './controls.js';
+    import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjects } from './world.js';
+    import { updateCamera } from './camera.js';
+    import { generateItems, animateItems } from './items.js';
+    import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD } from './hud.js';
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+    // --- ZÁKLADNÁ SCÉNA ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    // --- 2. POSILNENÉ OSVETLENIE (Hibernačná komora) ---
+    // Zvýšili sme jas okolitého svetla a zmenili farbu na svetlejšiu modrú
+    const ambientLight = new THREE.AmbientLight(0x223344, 1.5);
+    scene.add(ambientLight);
+
+    // Hlavné zelené svetlo je teraz oveľa silnejšie (150 namiesto 50)
+    const robotLight = new THREE.PointLight(0xffffff, 100, 10); 
+    robotLight.position.set(0, 3, 0); 
+    scene.add(robotLight);
+
+    // PRIDÁVAME: Pomocné svetlo zozadu, aby sme videli štruktúru stien
+    const fillLight = new THREE.PointLight(0xffffff, 30, 15);
+    fillLight.position.set(5, 2, 5);
+    scene.add(fillLight);
+
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 1.2; // Zvyšuje celkový jas scény
+   
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const robot = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.4), new THREE.MeshStandardMaterial({ color: 0x00ff41 }));
+    robot.position.y = 0.35;
+    robot.material.visible = false;
+    scene.add(robot);
+
+    const loader = new GLTFLoader();
+
+    loader.load('assets/robot.glb', function (gltf) {
+        const robotModel = gltf.scene;
+
+        robotModel.scale.set(0.40, 0.40, 0.40);
+        
+        robotModel.position.set(0, -0.35, 0);
+        robotModel.rotation.y = Math.PI;
+        robot.add(robotModel);
+        
+        console.log("Robot je úspešne načítaný!");
+    }, undefined, function (error) {
+        console.error("Stala sa chyba pri načítaní robota:", error);
+    });    
+
+    // --- MODULÁRNA AKTUALIZÁCIA ---
+    watchRoom("room1", (data) => {
+        // 1. Vygenerujeme miestnosť (steny) ako doteraz
+        generateRoom(scene, data);
+        
+        // 2. Skontrolujeme dvere
+        if (data.doors) {
+            generateDoors(scene, data.doors);
+        }
+
+        // 3. PRIDANÉ: Skontrolujeme a vykreslíme nabíjačky
+        if (data.chargers) {
+            generateChargers(scene, data.chargers);
+        }
+    });
+    watchItems("room1", (items) => generateItems(scene, items));
+
+// Táto premenná musí byť MIMO funkcie watchPlayer (napr. hneď nad ňou)
+let isRobotInDoorZone = false;
+let isRobotInChargerZone = false;
+
+watchPlayer("robot1", (playerData) => {     
+    if (!playerData) return;
+
+    // 1. HUD A SYNCHRONIZÁCIA
+    triggerSyncFlash();
+    updateEnergyHUD(playerData.energy || 0, playerData.maxEnergy || 200);
+    updateAccumulatorHUD(playerData.accumulator || 0, playerData.accumulatorMax || 10000);
+    updateMobileStatusHUD(playerData.serviceActive || false);
+    robot.energy = playerData.energy;
+    robot.maxEnergy = playerData.maxEnergy;
+    robot.accumulator = playerData.accumulator || 0; // Uložíme si aj stav akumulátora
+
+    // 2. PRÍPRAVA PAMÄTE
+    const seen = playerData.seenDialogues || [];
+    const px = playerData.positionX ?? playerData.x ?? 0;
+    const pz = playerData.positionZ ?? playerData.z ?? 0;
+
+    // 3. LOGIKA: ÚVOD
+    if (!seen.includes("INTRO")) {
+        speak(ENGEE_DIALOGUES.INTRO); 
+        markDialogueAsSeen("robot1", "INTRO");
+    }
+
+    // --- 4. LOGIKA: DETEKCIA NABÍJAČKY (NOVÉ) ---
+    const chargerPos = { x: 0, z: -4.5 }; 
+    const distCharger = Math.sqrt(Math.pow(px - chargerPos.x, 2) + Math.pow(pz - chargerPos.z, 2));
+
+    if (distCharger < 1.5) {
+        if (!isRobotInChargerZone && !seen.includes("CHARGER_FIXED")) {
+            const repairCost = 50; 
+            const currentAcc = playerData.accumulator || 0;
+            
+            // Spustíme dialóg pre nabíjačku (používa currentAcc!)
+            const chargerDialogue = ENGEE_DIALOGUES.BROKEN_CHARGER.generate(repairCost, currentAcc);
+            speak(chargerDialogue);
+            
+            isRobotInChargerZone = true;
+        }
+    } else if (distCharger > 2.0) {
+        isRobotInChargerZone = false;
+    }
+
+    // --- 5. LOGIKA: DETEKCIA DVERÍ (PÔVODNÉ) ---
+    const doorPos = { x: 5.5, z: 0 }; 
+    const distDoor = Math.sqrt(Math.pow(px - doorPos.x, 2) + Math.pow(pz - doorPos.z, 2));
+
+    if (distDoor < 2.0) {
+        if (!isRobotInDoorZone && !seen.includes("DOOR_FIXED")) {
+            const repairCost = 30;
+            const currentEnergy = playerData.energy || 0;
+            const dynamicDialogue = ENGEE_DIALOGUES.BROKEN_DOOR.generate(repairCost, currentEnergy);
+            
+            speak(dynamicDialogue);
+            isRobotInDoorZone = true;
+        }
+    } else if (distDoor > 2.5) {
+        isRobotInDoorZone = false;
+    }
+});
+
+// --- LOGIKA OPRAVY DVERÍ ---
+
+window.addEventListener('requestRepair', async (e) => {
+    const { cost } = e.detail;
+    
+    // Použijeme aktuálnu energiu robota, ktorú už máme v objekte 'robot'
+    if (robot.energy >= cost) {
+        const newEnergy = robot.energy - cost;
+
+        console.log("Spúšťam zápis opravy do Firebase...");
+
+        // Zavoláme funkciu z database.js
+        // Posielame: ID robota, ID miestnosti, ID dverí a novú energiu
+        const success = await performRepairInDB("robot1", "room1", "door_1", newEnergy);
+
+        if (success) {
+            console.log("Dvere sú opravené a energia odpočítaná.");
+            // Engee v dialógu automaticky pokračuje na text "Energia bola úspešne prenesená..."
+        } else {
+            alert("Chyba pri komunikácii s databázou.");
+        }
+    } else {
+        alert("Systém: Nedostatok energie pre tento úkon!");
+    }
+});
+// --- LOGIKA OPRAVY NABÍJAČKY ---
+window.addEventListener('requestChargerRepair', async (e) => {
+    const { cost } = e.detail;
+    
+    // Použijeme aktuálny stav akumulátora z nášho objektu robot
+    if (robot.accumulator >= cost) {
+        const newAccumulator = robot.accumulator - cost;
+
+        console.log("Spúšťam opravu nabíjacej stanice...");
+
+        // Voláme funkciu z database.js
+        const success = await performChargerRepairInDB("robot1", "room1", "charger_1", newAccumulator);
+
+        if (success) {
+            console.log("Nabíjačka je opravená. Model by sa mal automaticky zmeniť.");
+            // Engee v dialógu automaticky ukáže text "Výborne! Systém je online..."
+        } else {
+            alert("Chyba pri komunikácii s databázou.");
+        }
+    } else {
+        alert("Systém: Nedostatok energie v akumulátore!");
+    }
+});
+    setupControls(robot);
+    document.getElementById('transfer-btn').onclick = () => transferEnergy("robot1");
+
+    const clock = new THREE.Clock(); // Vytvorí časomerač
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        const time = Date.now() * 0.001;
+
+        // ANIMÁCIA SVETIEL A LOGIKA NABÍJANIA
+        if (typeof chargerObjects !== 'undefined') {
+            chargerObjects.forEach(obj => {
+                const light = obj.userData.statusLight;
+                if (!light) return;
+
+                const dist = robot.position.distanceTo(obj.position);
+
+                if (obj.userData.isBroken) {
+                    // Červené varovné blikanie
+                    light.color.setHex(0xff0000);
+                    light.intensity = Math.sin(time * 10) > 0 ? 15 : 2;
+                } else {
+                    // Funkčná nabíjačka: nabíjanie pri blízkosti
+                    if (dist < 1.2 && robot.energy < robot.maxEnergy) {
+                        light.color.setHex(0x00ff00);
+                        light.intensity = 8 + Math.sin(time * 15) * 5;
+                        robot.energy += 5 * delta;
+                        if (robot.energy > robot.maxEnergy) robot.energy = robot.maxEnergy;
+                    } else {
+                        // Pokojné pulzovanie
+                        light.color.setHex(0x00ffff);
+                        light.intensity = 5 + Math.sin(time * 2) * 3;
+                    }
+                }
+            });
+        }
+
+        // Aktualizácie animácií a pohybu
+        if (doorMixers) doorMixers.forEach(mixer => mixer.update(delta));
+        updateMovement(robot);
+        updateCamera(camera, robot);
+        if (typeof animateItems === 'function') animateItems();
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+
+    window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Local Firebase config (contains secrets)
+config.local.js
+
+# Node / build artifacts (if any)
+node_modules/
+dist/
