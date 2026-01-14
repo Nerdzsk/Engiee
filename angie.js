@@ -1,61 +1,11 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// angie.js - ENGEE AI Dialogue System
+// Statický avatar bez 3D animácie
 
-let scene, camera, renderer, model;
 let visitedOptions = [];
 
-// --- 1. INICIALIZÁCIA 3D AVATARA ---
-function initEngeeModel() {
-    const canvas = document.getElementById('engee-canvas');
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setSize(width, height);
-
-    scene = new THREE.Scene();
-    
-    // Kamera posunutá kúsok pred model
-    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.z = 2;
-
-    // Svetlo pre model
-    const light = new THREE.AmbientLight(0x00ffff, 2); // Modré okolité svetlo
-    scene.add(light);
-    const pointLight = new THREE.PointLight(0xffffff, 5);
-    pointLight.position.set(2, 2, 2);
-    scene.add(pointLight);
-
-    // Načítanie modelu
-    const loader = new GLTFLoader();
-    loader.load('assets/engee_model.glb', (gltf) => {
-        model = gltf.scene;
-        
-        // Vycentrovanie modelu
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center); 
-        
-        scene.add(model);
-        animate();
-    });
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-    if (model) {
-        // Jemné kývanie alebo otáčanie, aby "žila"
-        model.rotation.y += 0.01;
-        model.position.y = Math.sin(Date.now() * 0.002) * 0.05;
-    }
-    renderer.render(scene, camera);
-}
-
-// Spustíme nastavenie hneď pri načítaní
-window.addEventListener('DOMContentLoaded', initEngeeModel);
-
-// --- 2. FUNKCIA PRE ROZPRÁVANIE (Typewriter) ---
-// ... (začiatok súboru s initEngeeModel zostáva rovnaký) ...
+// ============================================================
+// SECTION: Dialogue System - Typewriter Effect
+// ============================================================
 
 export function speak(dialogueObject) {
     if (!dialogueObject || typeof dialogueObject.text === 'undefined') {
