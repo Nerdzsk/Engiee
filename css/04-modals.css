@@ -22,6 +22,377 @@
     to { text-shadow: 0 0 30px rgba(255, 170, 0, 1), 0 0 60px rgba(255, 170, 0, 0.6); }
 }
 
+/* SKILLS PANEL (Small fixed panel) */
+.skills-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 400px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid #ffff00;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    color: #ffff00;
+    z-index: 999;
+    max-height: 500px;
+    overflow-y: auto;
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.4);
+}
+
+.skills-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.skill-card {
+    background: rgba(50, 50, 50, 0.6);
+    border: 1px solid #ffff00;
+    padding: 10px;
+    border-radius: 2px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.skill-card:hover {
+    background: rgba(80, 80, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.3);
+}
+
+.skill-key {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffff00;
+    margin-bottom: 5px;
+}
+
+.skill-name {
+    font-size: 11px;
+    font-weight: bold;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.skill-desc {
+    font-size: 9px;
+    color: #aaaaaa;
+    margin: 5px 0;
+    height: 20px;
+    overflow: hidden;
+}
+
+.skill-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #00ff41;
+    margin: 8px 0;
+}
+
+.skill-breakdown {
+    display: flex;
+    justify-content: space-around;
+    font-size: 10px;
+    color: #ffff00;
+    margin-bottom: 8px;
+}
+
+.skill-breakdown .base {
+    color: #ffff00;
+}
+
+.skill-breakdown .bonus {
+    color: #00ff41;
+}
+
+.skill-btn {
+    width: 100%;
+    padding: 6px;
+    background: rgba(0, 255, 100, 0.3);
+    border: 1px solid #00ff41;
+    color: #00ff41;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+}
+
+.skill-btn:hover:not(:disabled) {
+    background: rgba(0, 255, 100, 0.5);
+    box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+}
+
+.skill-btn:disabled {
+    background: rgba(100, 100, 100, 0.2);
+    border-color: #666;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.perks-section {
+    margin-top: 15px;
+    border-top: 1px solid #ffff00;
+    padding-top: 10px;
+}
+
+.perks-section.hidden {
+    display: none;
+}
+
+.perks-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    color: #ffff00;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.perks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.perk-item {
+    background: rgba(50, 50, 50, 0.6);
+    border-left: 3px solid #ffff00;
+    padding: 8px;
+    border-radius: 2px;
+    font-size: 10px;
+}
+
+.perk-item.active {
+    border-left-color: #00ff41;
+    background: rgba(0, 50, 0, 0.4);
+}
+
+.perk-item.inactive {
+    opacity: 0.5;
+}
+
+.perk-name {
+    font-weight: bold;
+    color: #00ffff;
+    margin-bottom: 3px;
+}
+
+.perk-desc {
+    color: #aaaaaa;
+    font-size: 9px;
+    margin-bottom: 3px;
+}
+
+.perk-status {
+    font-size: 8px;
+    color: #ffff00;
+    text-transform: uppercase;
+}
+
+/* SKILLS MODAL FULLSCREEN - Additional elements */
+.skills-panel-content {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    flex: 1;
+}
+
+.skill-points-info {
+    background: rgba(50, 50, 0, 0.5);
+    border: 2px solid #ffff00;
+    padding: 15px;
+    border-radius: 4px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.skill-points-info h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #ffff00;
+}
+
+.skill-points-info .has-points {
+    color: #00ff41;
+    font-weight: bold;
+}
+
+.skills-section-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-height: 0;
+}
+
+.skills-grid-modal {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.skill-card-modal {
+    background: rgba(40, 40, 20, 0.8);
+    border: 2px solid #ffff00;
+    padding: 15px;
+    border-radius: 4px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.skill-card-modal:hover {
+    background: rgba(80, 80, 0, 0.8);
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.5);
+    transform: scale(1.02);
+}
+
+.skill-card-modal .skill-key {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ffff00;
+    margin-bottom: 8px;
+}
+
+.skill-card-modal .skill-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.skill-card-modal .skill-desc {
+    font-size: 11px;
+    color: #aaaaaa;
+    margin-bottom: 10px;
+    height: 25px;
+}
+
+.skill-card-modal .skill-value {
+    font-size: 36px;
+    font-weight: bold;
+    color: #00ff41;
+    margin: 10px 0;
+}
+
+.skill-card-modal .skill-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    color: #ffff00;
+    margin-bottom: 12px;
+}
+
+.skill-card-modal .skill-breakdown .base {
+    color: #ffff00;
+}
+
+.skill-card-modal .skill-breakdown .bonus {
+    color: #00ff41;
+}
+
+.skill-card-modal .skill-btn {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0, 255, 100, 0.3);
+    border: 2px solid #00ff41;
+    color: #00ff41;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+    letter-spacing: 1px;
+}
+
+.skill-card-modal .skill-btn:hover:not(:disabled) {
+    background: rgba(0, 255, 100, 0.6);
+    box-shadow: 0 0 12px rgba(0, 255, 65, 0.7);
+    transform: scale(1.05);
+}
+
+.skill-card-modal .skill-btn:disabled {
+    background: rgba(100, 100, 100, 0.2);
+    border-color: #666;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.perks-section-modal {
+    background: rgba(20, 40, 20, 0.5);
+    border: 2px solid #00ff41;
+    padding: 15px;
+    border-radius: 4px;
+    flex: 0.6;
+    min-width: 300px;
+    max-width: 350px;
+    overflow-y: auto;
+}
+
+.perks-section-modal h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #00ff41;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.perks-list-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.perk-item-modal {
+    background: rgba(40, 40, 40, 0.6);
+    border-left: 4px solid #ffff00;
+    padding: 12px;
+    border-radius: 2px;
+    font-size: 11px;
+    transition: all 0.2s ease;
+}
+
+.perk-item-modal.active {
+    border-left-color: #00ff41;
+    background: rgba(0, 50, 0, 0.5);
+}
+
+.perk-item-modal.inactive {
+    opacity: 0.6;
+    border-left-color: #666;
+}
+
+.perk-item-modal:hover {
+    transform: translateX(5px);
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.3);
+}
+
+.perk-item-modal .perk-name {
+    font-weight: bold;
+    color: #00ffff;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.perk-item-modal .perk-desc {
+    color: #aaaaaa;
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.perk-item-modal .perk-status {
+    font-size: 9px;
+    color: #ffff00;
+    text-transform: uppercase;
+}
+
 /* SKILLS MODAL */
 .skills-modal {
     position: fixed;
