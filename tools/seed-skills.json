@@ -1,0 +1,20 @@
+{
+  "skillPointsAvailable": 3,
+  "skills": {
+    "S": { "base": 5, "bonus": 0 },
+    "P": { "base": 4, "bonus": 1 },
+    "E": { "base": 5, "bonus": 0 },
+    "C": { "base": 3, "bonus": 0 },
+    "I": { "base": 6, "bonus": 0 },
+    "A": { "base": 4, "bonus": 0 },
+    "L": { "base": 2, "bonus": 0 }
+  },
+  "perks": [
+    {
+      "id": "perk_fast_repair",
+      "name": "Quick Repair",
+      "description": "Repair actions cost 10% less energy",
+      "active": true
+    }
+  ]
+}

@@ -161,11 +161,34 @@ export function generateDoors(scene, doorsData) {
 
         if (existingDoor) {
             // --- SMART UPDATE (Dvere už existujú) ---
-            // Len aktualizujeme dáta, model v scéne nechávame (žiadne blikanie!)
-            existingDoor.userData.isBroken = doorInfo.isBroken ?? false;
+            // Aktualizujeme stav a ak sa zmenilo isBroken, resetujeme animáciu
+            const wasBroken = existingDoor.userData.isBroken;
+            const isBrokenNow = doorInfo.isBroken ?? false;
+            
+            existingDoor.userData.isBroken = isBrokenNow;
             existingDoor.userData.repairCost = doorInfo.repairCost || 20;
-            // Pozíciu a rotáciu zvyčajne netreba meniť pri oprave, ale pre istotu:
             existingDoor.position.set(doorInfo.x, 0, doorInfo.z);
+            
+            // Ak sa zmenila stav (opravené/pokazené), resetuj animáciu
+            if (wasBroken !== isBrokenNow && existingDoor.userData.action && existingDoor.userData.mixer) {
+                const action = existingDoor.userData.action;
+                const clip = action.getClip();
+                const mixer = existingDoor.userData.mixer;
+                
+                // Reset animácie
+                mixer.stopAllAction();
+                action.play();
+                
+                // Nastav správny čas podľa stavu
+                if (isBrokenNow) {
+                    // Pokazané: spusti od polovice
+                    const clipDuration = clip.duration;
+                    mixer.setTime(clipDuration * 0.5);
+                } else {
+                    // Opravené: začni od začiatku
+                    mixer.setTime(0);
+                }
+            }
             
             console.log(`Dvere ${doorId} aktualizované (isBroken: ${existingDoor.userData.isBroken})`);
         } else {
@@ -186,6 +209,14 @@ export function generateDoors(scene, doorsData) {
                     action = mixer.clipAction(clip);
                     action.setLoop(THREE.LoopOnce);
                     action.clampWhenFinished = true;
+                    
+                    // Ak sú dvere pokazené, spusť animáciu od polovice
+                    if (doorInfo.isBroken) {
+                        action.play();
+                        // Nastav čas animácie na 50% (polovica dĺžky)
+                        const clipDuration = clip.duration;
+                        mixer.setTime(clipDuration * 0.5);
+                    }
                 }
 
                 doorModel.userData = { 

@@ -1,0 +1,383 @@
+/* 04-modals.css - Skills, Inventory, Kodex, Quest, LevelUp Modals */
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes levelUpPulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes glowPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes textGlow {
+    from { text-shadow: 0 0 20px rgba(255, 170, 0, 0.6), 0 0 40px rgba(255, 170, 0, 0.3); }
+    to { text-shadow: 0 0 30px rgba(255, 170, 0, 1), 0 0 60px rgba(255, 170, 0, 0.6); }
+}
+
+/* SKILLS MODAL */
+.skills-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    color: #ffff00;
+}
+
+.skills-modal.hidden {
+    display: none;
+}
+
+.skills-modal-content {
+    width: 95%;
+    max-width: 1400px;
+    height: 80%;
+    background: rgba(20, 20, 20, 0.98);
+    border: 3px solid #ffff00;
+    border-radius: 4px;
+    padding: 30px;
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(255, 255, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+}
+
+.skills-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #ffff00;
+    padding-bottom: 15px;
+}
+
+.skills-modal-header h2 {
+    margin: 0;
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: #ffff00;
+}
+
+.skills-close-btn {
+    background: rgba(255, 0, 0, 0.3);
+    border: 2px solid #ff0000;
+    color: #ff0000;
+    font-size: 24px;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    font-weight: bold;
+}
+
+.skills-close-btn:hover {
+    background: rgba(255, 0, 0, 0.6);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+}
+
+/* INVENTORY MODAL */
+.inventory-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.inventory-modal.hidden {
+    display: none;
+}
+
+.inventory-modal-content {
+    background: rgba(0, 20, 40, 0.95);
+    border: 2px solid #00ffff;
+    border-radius: 8px;
+    width: 85%;
+    height: 85%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+}
+
+.inventory-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #00ffff;
+    background: rgba(0, 30, 60, 0.8);
+}
+
+.inventory-modal-header h2 {
+    color: #00ffff;
+    margin: 0;
+    font-size: 20px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.inventory-modal-close {
+    background: none;
+    border: 1px solid #00ffff;
+    color: #00ffff;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.inventory-modal-close:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+/* KODEX MODAL */
+.kodex-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.kodex-modal.hidden {
+    display: none;
+}
+
+.kodex-modal-content {
+    background: rgba(10, 30, 60, 0.98);
+    border: 2px solid #ffaa00;
+    border-radius: 8px;
+    width: 85%;
+    height: 85%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.3);
+}
+
+.kodex-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #ffaa00;
+    background: rgba(20, 40, 80, 0.8);
+}
+
+.kodex-modal-header h2 {
+    color: #ffaa00;
+    margin: 0;
+    font-size: 20px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+}
+
+.kodex-modal-close {
+    background: none;
+    border: 1px solid #ffaa00;
+    color: #ffaa00;
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.kodex-modal-close:hover {
+    background: rgba(255, 170, 0, 0.2);
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+}
+
+/* QUEST MODAL */
+.quest-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    animation: fadeIn 0.3s ease;
+}
+
+.quest-modal.hidden {
+    display: none;
+}
+
+.quest-modal-content {
+    position: relative;
+    background: rgba(20, 20, 40, 0.95);
+    border: 2px solid #cc88ff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1000px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.quest-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid rgba(200, 100, 255, 0.3);
+}
+
+.quest-modal-header h2 {
+    margin: 0;
+    color: #cc88ff;
+    font-family: 'Courier New', monospace;
+    font-size: 24px;
+    letter-spacing: 2px;
+}
+
+.quest-modal-close {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 0, 0, 0.3);
+    border: 2px solid #ff4444;
+    border-radius: 4px;
+    color: #ff4444;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quest-modal-close:hover {
+    background: rgba(255, 0, 0, 0.6);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+}
+
+/* LEVEL UP MODAL */
+.levelup-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.levelup-modal.hidden {
+    display: none;
+}
+
+.levelup-modal-content {
+    position: relative;
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.15), rgba(255, 220, 0, 0.1));
+    border: 3px solid #ffaa00;
+    border-radius: 12px;
+    padding: 50px;
+    text-align: center;
+    min-width: 400px;
+    box-shadow: 0 0 50px rgba(255, 170, 0, 0.6), inset 0 0 30px rgba(255, 170, 0, 0.1);
+    animation: levelUpPulse 0.5s ease;
+}
+
+.levelup-glow {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 170, 0, 0.3) 0%, transparent 70%);
+    animation: glowPulse 2s infinite;
+    pointer-events: none;
+}
+
+.levelup-title {
+    font-family: 'Courier New', monospace;
+    font-size: 48px;
+    color: #ffaa00;
+    margin: 0 0 20px 0;
+    text-shadow: 0 0 20px rgba(255, 170, 0, 0.8), 0 0 40px rgba(255, 170, 0, 0.4);
+    letter-spacing: 4px;
+    animation: textGlow 1s infinite alternate;
+}
+
+.levelup-info {
+    font-family: 'Courier New', monospace;
+    font-size: 24px;
+    color: #ffffff;
+    margin: 20px 0;
+    letter-spacing: 2px;
+}
+
+.levelup-rewards {
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    color: #ffdd00;
+    margin: 30px 0;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 170, 0, 0.5);
+    border-radius: 6px;
+}
+
+.levelup-close-btn {
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 15px 40px;
+    background: linear-gradient(45deg, #ffaa00, #ffdd00);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
+}
+
+.levelup-close-btn:hover {
+    background: linear-gradient(45deg, #ffdd00, #ffff00);
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.8);
+    transform: scale(1.05);
+}

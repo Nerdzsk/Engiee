@@ -77,16 +77,27 @@ export function setupControls(robot) {
     function closeMenu() {
         isMenuOpen = false;
         activeItem = null;
-        document.getElementById('context-menu').style.display = 'none';
+        const menu = document.getElementById('context-menu');
+        if (menu) menu.style.display = 'none';
     }
 
     function checkForItemUnderRobot(x, z) {
+        const menu = document.getElementById('context-menu');
+        if (!menu) return; // menu neexistuje, neriešime
         const found = currentItemsData.find(item => item.coords.x === x && item.coords.z === z);
         if (found) {
             activeItem = found;
             isMenuOpen = true; 
-            document.getElementById('context-menu').style.display = 'block';
+            menu.style.display = 'block';
+        } else {
+            isMenuOpen = false;
+            activeItem = null;
+            menu.style.display = 'none';
         }
+    }
+
+    function isItemBlockingTile(x, z) {
+        return currentItemsData.some(item => Math.round(item.coords.x) === x && Math.round(item.coords.z) === z);
     }
 
    // --- 4. KLÁVESNICA (OPRAVENÝ BLOK) ---
@@ -144,6 +155,9 @@ export function setupControls(robot) {
             });
 
             if (isBlockedByCharger) return;
+
+            // Zablokuj vstup na políčko, kde leží item na zemi
+            if (isItemBlockingTile(nextX, nextZ)) return;
 
             robot.targetPosition.x = nextX;
             robot.targetPosition.z = nextZ;

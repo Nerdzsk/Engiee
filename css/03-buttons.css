@@ -1,0 +1,66 @@
+/* 03-buttons.css - HUD Buttons & Controls */
+
+/* Buttons row */
+.controls-row { display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 6px; }
+
+.hud-btn {
+    flex: 1; padding: 8px; font-family: 'Rajdhani', sans-serif; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; font-size: 10px; cursor: pointer; border-radius: 4px; transition: all 0.2s ease; border: 2px solid transparent; background: rgba(255,255,255,0.05);
+}
+
+.hud-btn-yellow { color: var(--hud-accent-yellow); border-color: var(--hud-accent-yellow); box-shadow: 0 0 12px rgba(255,255,0,0.15); background: linear-gradient(45deg, rgba(255,255,0,0.12), rgba(255,200,0,0.12)); }
+.hud-btn-green  { color: var(--hud-accent-green);  border-color: var(--hud-accent-green);  box-shadow: 0 0 12px rgba(0,255,100,0.15); background: linear-gradient(45deg, rgba(0,255,100,0.12), rgba(100,255,100,0.12)); }
+.hud-btn-orange { color: var(--hud-accent-orange); border-color: var(--hud-accent-orange); box-shadow: 0 0 12px rgba(255,170,0,0.15); background: linear-gradient(45deg, rgba(255,170,0,0.12), rgba(255,140,0,0.12)); }
+.hud-btn-purple { color: var(--hud-accent-purple); border-color: var(--hud-accent-purple); box-shadow: 0 0 12px rgba(200,100,255,0.15); background: linear-gradient(45deg, rgba(200,100,255,0.12), rgba(150,100,255,0.12)); }
+
+.hud-btn:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(255,255,255,0.12); }
+
+.transfer-btn {
+    width: 100%; padding: 10px; background: linear-gradient(45deg, rgba(0,170,255,0.25), rgba(0,255,255,0.25)); color: #e0ffff; border: 2px solid #00f2fe; border-radius: 4px; box-shadow: 0 0 15px rgba(0,242,254,0.35); cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; transition: all 0.2s ease; font-size: 10px;
+}
+
+.transfer-btn:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(0,242,254,0.55); }
+
+.neural-link-panel {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,170,0,0.15);
+    text-align: center;
+}
+
+.neural-label { color: #777; font-size: 8px; letter-spacing: 1.5px; margin-bottom: 4px; text-transform: uppercase; }
+
+.mobile-status { font-size: 9px; font-weight: bold; padding: 5px 12px; border: 1px solid #ff4444; border-radius: 2px; display: inline-block; min-width: 120px; transition: all 0.5s ease; background: rgba(255,68,68,0.05); }
+
+/* === HUD Skill Points Indicator */
+.skill-points-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    margin: 0 6px;
+    background: linear-gradient(135deg, rgba(255,220,0,0.25), rgba(255,255,0,0.15));
+    border: 2px solid #ffff00;
+    color: #ffff00;
+    border-radius: 999px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    box-shadow: 0 0 16px rgba(255,255,0,0.55);
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+    animation: skillPulse 1.5s ease-in-out infinite;
+}
+
+.skill-points-indicator:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 24px rgba(255,255,0,0.85);
+    animation: none;
+}
+
+.skill-points-indicator.hidden { display: none; }
+
+@keyframes skillPulse {
+    0%, 100% { box-shadow: 0 0 16px rgba(255,255,0,0.55); }
+    50% { box-shadow: 0 0 24px rgba(255,255,0,0.75); }
+}

@@ -20,6 +20,8 @@ export function generateItems(scene, itemsData) {
     if (!itemsData) return;
 
     itemsData.forEach(item => {
+        let mesh;
+        
         if (item.type === 'battery') {
             const geometry = new THREE.CylinderGeometry(0.15, 0.15, 0.4, 12);
             const material = new THREE.MeshStandardMaterial({ 
@@ -27,9 +29,23 @@ export function generateItems(scene, itemsData) {
                 emissive: TIER_COLORS[item.tier],
                 emissiveIntensity: 0.5
             });
-
-            const mesh = new THREE.Mesh(geometry, material);
+            mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(item.coords.x, 0.2, item.coords.z);
+        } else if (item.type === 'battery_pack') {
+            // Energetický balík - krychľa s cyan farbou
+            const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 0.6,
+                metalness: 0.7,
+                roughness: 0.3
+            });
+            mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(item.coords.x, 0.2, item.coords.z);
+        }
+        
+        if (mesh) {
             scene.add(mesh);
             renderedItems.push(mesh);
         }

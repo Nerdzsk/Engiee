@@ -20,10 +20,15 @@ export function triggerSyncFlash() {
 export function updateEnergyHUD(currentEng, maxEng) {
     const energyFill = document.getElementById('energy-fill');
     const energyText = document.getElementById('energy-text');
+    const energyHpText = document.getElementById('energy-hp-text');
+    const energyOrb = document.getElementById('energy-orb');
+    const safeMax = Math.max(1, maxEng || 1);
+    const percent = (currentEng / safeMax) * 100;
+    const clampedPercent = Math.max(0, Math.min(100, percent));
+    const fraction = Math.max(0, Math.min(1, currentEng / safeMax));
     
     if (energyFill && energyText) {
-        const percent = (currentEng / maxEng) * 100;
-        energyFill.style.width = Math.max(0, Math.min(100, percent)) + "%";
+        energyFill.style.width = clampedPercent + "%";
         energyText.innerText = `${Math.round(currentEng)} / ${maxEng} EP`;
         
         // Vylepšená grafika: pridávame gradient a box-shadow (žiaru)
@@ -36,6 +41,21 @@ export function updateEnergyHUD(currentEng, maxEng) {
         } else {
             energyFill.style.background = "linear-gradient(90deg, #ff4444, #ff8080)";
             energyFill.style.boxShadow = "0 0 10px #ff4444";
+        }
+
+        // Aktualizácia Energy Orbu (PNG asset): dynamické maskovanie podľa percent
+        if (energyOrb) {
+            energyOrb.style.setProperty('--fill-percent', clampedPercent + '%');
+            energyOrb.style.setProperty('--fill-fraction', fraction);
+            if (percent >= 80) {
+                energyOrb.classList.add('high-energy');
+            } else {
+                energyOrb.classList.remove('high-energy');
+            }
+        }
+        // Aktualizácia HP textu (ako HP: 194/200)
+        if (energyHpText) {
+            energyHpText.innerText = `HP: ${Math.round(currentEng)} / ${maxEng}`;
         }
     }
 }
@@ -64,3 +84,22 @@ export function updateMobileStatusHUD(isActive) {
         statusEl.style.boxShadow = isActive ? "0 0 10px rgba(68, 255, 65, 0.3)" : "none";
     }
 }
+
+    // 5. Logika pre level a XP
+    export function updateLevelHUD(level, currentXP, xpToNext) {
+        const levelInfo = document.getElementById('level-info');
+        const xpFill = document.getElementById('xp-fill');
+        const xpText = document.getElementById('xp-text');
+    
+        if (levelInfo && xpFill && xpText) {
+            levelInfo.innerText = `LEVEL ${level}`;
+        
+            const percent = (currentXP / xpToNext) * 100;
+            xpFill.style.width = Math.max(0, Math.min(100, percent)) + "%";
+            xpText.innerText = `${Math.round(currentXP)} / ${xpToNext} XP`;
+        
+            // Gradient efekt pre XP bar
+            xpFill.style.background = "linear-gradient(90deg, #ffaa00, #ffdd00)";
+            xpFill.style.boxShadow = "0 0 10px #ffaa00";
+        }
+    }

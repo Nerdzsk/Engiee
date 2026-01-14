@@ -1,0 +1,57 @@
+/* 00-root.css - CSS Variables & Global Colors */
+
+:root {
+    --hud-bg: rgba(20,20,20,0.8);
+    --hud-accent-yellow: #ffff00;
+    --hud-accent-green: #00ff64;
+    --hud-accent-cyan: #00ffff;
+    --hud-accent-orange: #ffaa00;
+    --hud-accent-purple: #cc88ff;
+    --hud-text-dim: #99a;
+    
+    /* === HUD TIER ANCHOR POINTS === */
+    /* Tier 1: Rusted - základné pozície prvkov na frame */
+    --tier-rusted-left-module-x: 2vw;
+    --tier-rusted-left-module-y: 8px;
+    --tier-rusted-center-module-x: auto;
+    --tier-rusted-center-module-y: 8px;
+    --tier-rusted-right-module-x: 2vw;
+    --tier-rusted-right-module-y: 8px;
+    --tier-rusted-acc-bar-bottom: 200px;
+    --tier-rusted-orb-center-x: 76px;
+    --tier-rusted-orb-bottom: 36px;
+    
+    /* Tier 2: Advanced - príklad pre budúci upgrade */
+    --tier-advanced-left-module-x: 3vw;
+    --tier-advanced-left-module-y: 12px;
+    --tier-advanced-center-module-x: auto;
+    --tier-advanced-center-module-y: 12px;
+    --tier-advanced-right-module-x: 3vw;
+    --tier-advanced-right-module-y: 12px;
+    --tier-advanced-acc-bar-bottom: 220px;
+    
+    /* Tier 3-10: Pridaj podľa potreby */
+}
+
+body { 
+    margin: 0; 
+    overflow: hidden; 
+    background: #000; 
+}
+
+#hud {
+    position: fixed; 
+    top: 20px; 
+    left: 20px; 
+    z-index: 1000; 
+    font-family: 'Courier New', monospace;
+}
+
+#hud.hud-wrap {
+    top: auto;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    padding: 6px 12px 8px 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0));
+    pointer-events: none;
+}

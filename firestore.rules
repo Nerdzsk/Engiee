@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pravidlá pre hráčov
+    match /players/{playerId} {
+      // Čítanie: všetci
+      allow read: if true;
+      
+      // Zápis: len vlastník dokumentu (uid == playerId)
+      allow write: if request.auth != null && request.auth.uid == playerId;
+      
+      // Ako bezpečnosť: validácia typov (optional, ale odporúčané)
+      allow write: if request.data.keys().hasAll(['skills']) 
+        && request.data.skills is map
+        && request.data.skillPointsAvailable is int;
+    }
+
+    // Pravidlá pre miestnosti (read-only klient)
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if false;  // Len server/admin
+    }
+
+    // Pravidlá pre lodný data (read-only klient)
+    match /ship_data/{shipId} {
+      allow read: if true;
+      allow write: if false;  // Len server/admin
+    }
+
+    // Default: deny all
+    match /{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}

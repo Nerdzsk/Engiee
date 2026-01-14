@@ -1,0 +1,160 @@
+/* 01-base.css - Base HUD Frame & Layout */
+
+.hud-frame {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    pointer-events: none;
+    z-index: 901;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.hud-frame-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: none;
+    transition: opacity 0.3s ease;
+}
+
+.hud-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr 1fr;
+    gap: 10px;
+    align-items: end;
+    pointer-events: auto;
+    width: 100vw;
+    padding: 0 2vw;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 902;
+}
+
+.hud-left, .hud-center, .hud-right {
+    background: rgba(25,25,25,0.35);
+    border: 0;
+    box-shadow: none;
+    padding: 8px;
+}
+
+.hud-left {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-columns: 1fr;
+    align-items: center;
+    justify-items: center;
+    gap: 8px;
+}
+
+/* Tier-specific positioning */
+.hud-frame--tier-rusted ~ .hud-bottom .hud-left,
+.hud-frame--tier-rusted ~ .hud-bottom .hud-center,
+.hud-frame--tier-rusted ~ .hud-bottom .hud-right {
+    /* použitie anchor pointov pre Rusted */
+}
+
+.hud-frame--tier-rusted ~ .hud-top-center {
+    bottom: var(--tier-rusted-acc-bar-bottom);
+}
+
+/* Tier 2: Advanced (príklad pre budúcnosť) */
+.hud-frame--tier-advanced ~ .hud-top-center {
+    bottom: var(--tier-advanced-acc-bar-bottom);
+}
+
+.hud-frame--tier-advanced ~ .hud-bottom .hud-left {
+    padding-left: calc(var(--tier-advanced-left-module-x) + 8px);
+}
+
+.hud-frame--tier-advanced ~ .hud-bottom .hud-right {
+    padding-right: calc(var(--tier-advanced-right-module-x) + 8px);
+}
+
+/* Top center ACC bar above console */
+.hud-top-center {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto;
+    z-index: 902;
+}
+
+.top-center-label { color: var(--hud-accent-cyan); font-weight: bold; letter-spacing: 2px; font-size: 11px; }
+.top-center-text { color: var(--hud-accent-cyan); font-size: 10px; opacity: 0.9; }
+
+/* Reactor orb (placeholder) */
+.reactor-orb {
+    display: none;
+}
+
+@keyframes reactorPulse {
+    0%, 100% { box-shadow: 0 0 30px rgba(0,255,200,0.6), inset 0 0 25px rgba(0,255,255,0.5); }
+    50% { box-shadow: 0 0 50px rgba(0,255,200,0.9), inset 0 0 35px rgba(0,255,255,0.7); }
+}
+
+/* Wider bars inside modules */
+.power-wide { width: 240px; }
+.acc-wide { width: 360px; }
+.xp-wide { width: 240px; }
+
+/* Energetické bary */
+.bar-container {
+    width: 200px; 
+    height: 18px; 
+    border: 2px solid #44ff41; 
+    padding: 2px; 
+    background: rgba(0,0,0,0.5);
+    margin-bottom: 5px;
+}
+
+.acc-container {
+    width: 200px; 
+    height: 10px; 
+    border: 1px solid #00ffff; 
+    padding: 1px; 
+    background: rgba(0,0,0,0.5);
+}
+
+/* module-specific bar overrides */
+.hud-left .bar-container { border-color: #44ff41; }
+.hud-right .bar-container { border-color: #ffaa00; }
+.hud-top-center .acc-container { border-color: #00ffff; }
+
+#hud.hud-wrap .bar-container { margin-bottom: 6px; }
+
+/* Enhanced labels */
+.label-power { color: #44ff41; font-weight: bold; letter-spacing: 1.5px; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+.label-acc { color: #00ffff; font-weight: bold; letter-spacing: 1px; font-size: 11px; margin-top: 8px; margin-bottom: 4px; }
+
+.sync-indicator { color: #44ff41; font-size: 9px; margin-top: 4px; opacity: 0.7; }
+
+/* Texty a popisky */
+.status-text { font-size: 12px; margin-top: 5px; }
+
+/* HP text pod orbom */
+#energy-hp-text {
+    text-align: center;
+    color: #44ff41;
+    font-weight: bold;
+    font-size: 14px;
+    margin: 4px 0 6px 0;
+    text-shadow: 0 0 8px rgba(68,255,65,0.4);
+    letter-spacing: 1px;
+}
+
+/* Level badge */
+.level-badge {
+    width: 90px; height: 90px; border-radius: 50%; margin: 0 auto 6px auto; display: flex; align-items: center; justify-content: center; color: #f6e7a6; font-weight: 900; letter-spacing: 1.5px; font-size: 14px; background: radial-gradient(circle, rgba(255,220,120,0.25) 0%, rgba(60,40,0,0.9) 70%); border: 3px solid #c9a24a; box-shadow: inset 0 0 20px rgba(255,200,80,0.35), 0 0 18px rgba(255,200,80,0.2);
+}

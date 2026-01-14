@@ -1,5 +1,5 @@
 import { db } from './database.js';
-import { doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, updateDoc, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Pomocné premenné pre stabilitu na pozadí (podobne ako v tvojom StepService.kt)
 let stepBuffer = 0;
@@ -73,12 +73,19 @@ export async function activatePedometer(playerId) {
             stepBuffer = 0; // Vynulujeme zásobník pred zápisom
             lastSyncTime = currentTime;
 
-            updateDoc(playerRef, {
-                accumulator: increment(toSync), 
-                last_sync: new Date(),
-                debug_steps: data.numberOfSteps
+            runTransaction(db, async (transaction) => {
+                const playerDoc = await transaction.get(playerRef);
+                const currentAccumulator = playerDoc.data()?.accumulator || 0;
+                const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+                const newAccumulator = Math.min(currentAccumulator + toSync, maxAccumulator);
+                
+                transaction.update(playerRef, {
+                    accumulator: newAccumulator,
+                    last_sync: new Date(),
+                    debug_steps: data.numberOfSteps
+                });
             }).then(() => {
-                console.log(`Úspešná synchronizácia: +${toSync} krokov.`);
+                console.log(`Úspešná synchronizácia: +${toSync} krokov (kapacita rešpektovaná).`);
             }).catch(err => {
                 // Ak zápis zlyhá (napr. vypnutá sieť v kapse), vrátime kroky do zásobníka
                 stepBuffer += toSync;
@@ -97,10 +104,17 @@ export async function activatePedometer(playerId) {
 export async function addStepToDatabase(playerId, amount) {
     const playerRef = doc(db, "players", playerId);
     try {
-        await updateDoc(playerRef, {
-            accumulator: increment(amount)
+        await runTransaction(db, async (transaction) => {
+            const playerDoc = await transaction.get(playerRef);
+            const currentAccumulator = playerDoc.data()?.accumulator || 0;
+            const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+            const newAccumulator = Math.min(currentAccumulator + amount, maxAccumulator);
+            
+            transaction.update(playerRef, {
+                accumulator: newAccumulator
+            });
         });
-        console.log(`Debug: Pridaných ${amount} jednotiek.`);
+        console.log(`Debug: Pridaných ${amount} jednotiek (kapacita rešpektovaná).`);
     } catch (e) {
         console.error("Chyba pri debug kroku:", e);
     }

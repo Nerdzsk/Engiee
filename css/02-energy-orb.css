@@ -1,0 +1,78 @@
+/* 02-energy-orb.css - Energy Orb Styling & Animations */
+
+/* === Base Energy Orb === */
+.energy-orb {
+    --fill-percent: 0%;
+    --fill-fraction: 0;
+    position: absolute;
+    bottom: 2.0vw;
+    left: 2.15vw;
+    z-index: 910;
+    width: 11.25vw;
+    height: 10vw;
+    background: none;
+    border-radius: 50%;
+    overflow: hidden;
+    filter: drop-shadow(0 0 20px rgba(255,170,0,0.5));
+    transition: filter 0.3s ease;
+}
+
+.energy-orb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 100% 100%;
+    clip-path: inset(calc(100% - var(--fill-percent)) 0 0 0);
+    opacity: 0.92;
+    transition: clip-path 0.3s ease, opacity 0.3s ease;
+}
+
+/* Jemný vnútorný pohyb energie */
+.energy-orb::before {
+    content: "";
+    position: absolute;
+    inset: -1%;
+    background-image: url('./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 102% 102%;
+    opacity: calc(var(--fill-fraction) * 0.32);
+    mix-blend-mode: screen;
+    filter: blur(0.18vw);
+    transform-origin: 50% 50%;
+    animation: orbSlowSpin 14s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes orbSlowSpin {
+    from { transform: rotate(0deg) scale(1.02); }
+    to   { transform: rotate(360deg) scale(1.02); }
+}
+
+.energy-orb-img {
+    display: none;
+}
+
+.energy-orb-liquid {
+    display: none;
+}
+
+/* Pulzovanie glowu pri vysokej energii */
+.energy-orb.high-energy {
+    animation: orbGlowDynamic 2.2s ease-in-out infinite;
+}
+
+@keyframes orbGlowDynamic {
+    0%,100% { filter: drop-shadow(0 0 14px rgba(255,170,0,0.35)); }
+    50% { filter: drop-shadow(0 0 24px rgba(255,170,0,0.55)); }
+}
+
+/* Dočasne skryjeme prvky v hud-left */
+.hud-left .bar-container.power-wide { display: none; }
+.hud-left #energy-text { display: none; }
+.hud-left #energy-hp-text { display: none; }
+.hud-left .sync-indicator { display: none; }
+.hud-left .label-power { display: none; }
