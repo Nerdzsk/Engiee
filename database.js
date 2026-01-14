@@ -32,7 +32,10 @@ enableIndexedDbPersistence(db).catch((err) => {
     }
 });
 
-// --- FUNKCIE PRE MIESTNOSŤ ---
+// ============================================================
+// SECTION: Room Management
+// Functions: watchRoom
+// ============================================================
 export function watchRoom(roomId, callback) {
     const docRef = doc(db, "rooms", roomId);
     return onSnapshot(docRef, (docSnap) => {
@@ -44,7 +47,10 @@ export function watchRoom(roomId, callback) {
     });
 }
 
-// --- FUNKCIE PRE PREDMETY ---
+// ============================================================
+// SECTION: Item Management
+// Functions: watchItems, pickUpItem
+// ============================================================
 export function watchItems(roomId, callback) {
     const itemsRef = collection(db, "items");
     const q = query(itemsRef, where("location", "==", roomId), where("status", "==", "on_ground"));
@@ -62,7 +68,15 @@ export async function pickUpItem(playerId, itemId) {
     } catch (e) { console.error("Chyba pri dvíhaní: ", e); }
 }
 
-// --- FUNKCIE PRE HRÁČA ---
+// ============================================================
+// SECTION: Player Core Functions
+// Functions: watchPlayer, updatePlayerStatus, watchInventory, useBattery, transferEnergy
+// ============================================================
+/**
+ * @purpose Real-time player data listener
+ * @updates Triggers callback on any player field change
+ * @called-from app.js, hud.js
+ */
 export function watchPlayer(playerId, callback) {
     const docRef = doc(db, "players", playerId);
     return onSnapshot(docRef, (docSnap) => {
@@ -91,8 +105,15 @@ export async function updatePlayerStatus(playerId, x, z, energy) {
         }, { merge: true });
     }
 }
-
-export function watchInventory(playerId, callback) {
+// ============================================================
+// SECTION: Kodex System
+// Functions: watchPlayerKodex, addKodexEntry
+// ============================================================
+/**
+ * @purpose Real-time kodex entries listener
+ * @updates Triggers callback when new entries unlocked
+ * @called-from kodex.js
+ */export function watchInventory(playerId, callback) {
     const itemsRef = collection(db, "items");
     const q = query(itemsRef, where("owner", "==", playerId), where("status", "==", "in_inventory"));
     return onSnapshot(q, (snapshot) => {

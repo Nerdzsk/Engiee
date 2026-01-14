@@ -18,6 +18,127 @@ Krátky súhrn pre rýchlu orientáciu (na účely spolupráce a nástrojov).
 - `world.js` — generovanie miestností, dverí, nabíjačiek a ich stavov.
 - `items.js`, `angie.js`, `hud.js`, `controls.js`, `camera.js` — herné subsystémy (itemy, UI hovorenie, HUD, input, kamera).
 - `assets/` — 3D modely, obrázky, video.
+- `css/` — Modularizované CSS súbory (00-root, 01-base, 02-energy-orb, 03-buttons, 04-modals, 05-responsive, 06-angie).
+
+## Quick Reference - Function Map
+
+### 📁 database.js (834 lines)
+**Room Management:**
+- `watchRoom(roomId, callback)` - Real-time room listener
+
+**Item Management:**
+- `watchItems(roomId, callback)` - Items on ground in room
+- `pickUpItem(playerId, itemId)` - Move item to inventory
+
+**Player Core:**
+- `watchPlayer(playerId, callback)` - Real-time player data
+- `updatePlayerStatus(playerId, x, z, energy)` - Update position & energy
+- `useBattery(playerId, itemId, energyAmount)` - Consume battery
+- `transferEnergy(playerId)` - Transfer ACC → battery
+
+**Room State:**
+- `updateRoomDoors(roomId, doorIndex, isBroken)` - Door state
+- `performRepairInDB(robotId, roomId, doorId, newAcc)` - Repair door
+- `setupChargerInDB(roomId)` - Create charger
+- `performChargerRepairInDB(...)` - Repair charger
+
+**Skills:**
+- `getSkills(playerId)` - Fetch skills data
+- `allocateSkillPoint(playerId, statKey)` - Spend skill point
+- `watchPlayerSkills(playerId, callback)` - Real-time skills
+
+**Inventory:**
+- `watchPlayerInventory(playerId, callback)` - Real-time inventory
+- `addToInventory(playerId, itemType, count)` - Add item
+- `removeFromInventory(playerId, itemType, count)` - Remove item
+- `useInventoryItem(playerId, itemType)` - Use item
+
+**Kodex:**
+- `watchPlayerKodex(playerId, callback)` - Real-time kodex
+- `addKodexEntry(playerId, entryId, entryData)` - Unlock entry
+
+**Quests:**
+- `watchPlayerQuests(playerId, callback)` - Real-time quests
+- `startQuest(playerId, questId, questData)` - Activate quest
+- `updateQuestProgress(playerId, questId, objIndex, amount)` - Progress
+- `completeQuest(playerId, questId, questData)` - Finish quest
+- `giveXP(playerId, amount, source)` - Award XP + level up
+
+### 📁 app.js (402 lines)
+- `animate()` - Main render loop (real-time HUD updates here)
+- `watchPlayer()` callback - Syncs Firestore → robot object
+- Energy orb real-time refresh via `lastEnergyHUD` cache
+
+### 📁 hud.js (99 lines)
+- `updateEnergyHUD(current, max)` - Sets CSS vars `--fill-percent`, `--fill-fraction`
+- `updateAccumulatorHUD(current, max)` - ACC bar
+- `updateLevelHUD(level)` - Level badge
+- `updateXPHUD(current, max)` - XP bar
+
+### 📁 skills.js (177 lines)
+- `openSkillsModal()` - Show fullscreen skills
+- `renderSkillsPanel()` - Render skill cards
+- `handleAllocatePoint(statKey)` - Spend point
+
+### 📁 inventory.js (197 lines)
+- `openInventoryModal()` - Show inventory UI
+- `renderInventory(items)` - Render item grid
+- Tab system for categories
+
+### 📁 kodex.js (221 lines)
+- `openKodexModal()` - Show kodex UI
+- `renderKodex(entries)` - Render unlocked entries
+
+### 📁 quests.js (223 lines)
+- `openQuestModal()` - Show quest UI
+- `renderQuests(quests)` - Render active/completed
+
+### 📁 world.js (243 lines)
+- `generateRoom(roomData)` - Create 3D room from Firestore
+- Door/charger interaction logic
+
+### 📁 hud-tiers.js (96 lines)
+- `setHudTier(tierNumber)` - Change HUD frame asset
+- `upgradeHudTier()` - Advance to next tier
+
+## Common Tasks - Quick Guide
+
+### 🎨 Change Energy Orb Visual
+**File:** `css/02-energy-orb.css`
+- Glow color: `.energy-orb { filter: drop-shadow(...) }`
+- Fill animation: `.energy-orb::after { clip-path: ... }`
+- Rotating layer: `.energy-orb::before { animation: orbSlowSpin ... }`
+
+### 🎯 Add New Skill
+1. **Database:** Add skill to `database.js` → `getSkills()` default structure
+2. **UI:** Add card in `skills.js` → `renderSkillsPanel()`
+3. **Logic:** Update `allocateSkillPoint()` calculation
+
+### 📦 Add New Item Type
+1. **Database:** Update `addToInventory()` in `database.js`
+2. **UI:** Add icon/category in `inventory.js`
+3. **Usage:** Implement `useInventoryItem()` logic
+
+### 🗺️ Add New Kodex Entry
+1. **Trigger:** Call `addKodexEntry(playerId, entryId, { title, desc, ... })`
+2. **UI:** Entry auto-appears in `kodex.js` modal
+
+### ⚡ Modify HUD Layout
+**Files:** `css/01-base.css`, `index.html`
+- Grid structure: `.hud-bottom { grid-template-columns: ... }`
+- Module positioning: `.hud-left`, `.hud-center`, `.hud-right`
+
+### 🎭 Change HUD Tier Frame
+**File:** `hud-tiers.js`
+- Add tier to `HUD_TIERS` object
+- Create asset: `assets/{TierName}/HUD_Frame_Tier_{TierName}.png`
+- Call: `setHudTier(tierNumber)`
+
+### 🔧 Debug Real-Time Updates
+**Check these:**
+1. `app.js` animate() loop - `lastEnergyHUD` cache
+2. `database.js` watchers - `onSnapshot` callbacks
+3. Browser DevTools → Network → Check Firestore requests
 
 ## Firestore — aktuálna schéma (z konzoly)
 - Kolekcie: `players`, `rooms`, `ship_data`.
