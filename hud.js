@@ -21,6 +21,7 @@ export function updateEnergyHUD(currentEng, maxEng) {
     const energyFill = document.getElementById('energy-fill');
     const energyText = document.getElementById('energy-text');
     const energyHpText = document.getElementById('energy-hp-text');
+    const energyOrbHpDisplay = document.getElementById('energy-orb-hp-display');
     const energyOrb = document.getElementById('energy-orb');
     const safeMax = Math.max(1, maxEng || 1);
     const percent = (currentEng / safeMax) * 100;
@@ -57,6 +58,10 @@ export function updateEnergyHUD(currentEng, maxEng) {
         if (energyHpText) {
             energyHpText.innerText = `HP: ${Math.round(currentEng)} / ${maxEng}`;
         }
+        // Aktualizácia HP textu pod orbom
+        if (energyOrbHpDisplay) {
+            energyOrbHpDisplay.innerText = `HP: ${Math.round(currentEng)} / ${maxEng}`;
+        }
     }
 }
 
@@ -64,13 +69,36 @@ export function updateEnergyHUD(currentEng, maxEng) {
 export function updateAccumulatorHUD(units, mAcc) {
     const accFill = document.getElementById('acc-fill');
     const accText = document.getElementById('acc-text');
+    const accOrbDisplay = document.getElementById('accumulator-orb-display');
+    const accOrb = document.getElementById('accumulator-orb');
+    const safeMax = Math.max(1, mAcc || 1);
+    const percent = (units / safeMax) * 100;
+    const clampedPercent = Math.max(0, Math.min(100, percent));
+    const fraction = Math.max(0, Math.min(1, units / safeMax));
+    
     if (accFill && accText) {
-        accFill.style.width = Math.min(100, (units / mAcc * 100)) + "%";
+        accFill.style.width = clampedPercent + "%";
         accText.innerText = `${Math.round(units)} / ${mAcc} UNITS (READY TO TRANSFER)`;
         
         // Vylepšená grafika: azúrový gradient a žiara
         accFill.style.background = "linear-gradient(90deg, #00ffff, #80ffff)";
         accFill.style.boxShadow = "0 0 10px #00ffff";
+    }
+    
+    // Aktualizácia Accumulator Orbu: dynamické maskovanie podľa percent
+    if (accOrb) {
+        accOrb.style.setProperty('--fill-percent', clampedPercent + '%');
+        accOrb.style.setProperty('--fill-fraction', fraction);
+        if (percent >= 80) {
+            accOrb.classList.add('high-energy');
+        } else {
+            accOrb.classList.remove('high-energy');
+        }
+    }
+    
+    // Aktualizácia ACC textu pod orbom
+    if (accOrbDisplay) {
+        accOrbDisplay.innerText = `ACC: ${Math.round(units)} / ${mAcc}`;
     }
 }
 
@@ -89,17 +117,11 @@ export function updateMobileStatusHUD(isActive) {
     export function updateLevelHUD(level, currentXP, xpToNext) {
         const levelInfo = document.getElementById('level-info');
         const xpFill = document.getElementById('xp-fill');
-        const xpText = document.getElementById('xp-text');
     
-        if (levelInfo && xpFill && xpText) {
-            levelInfo.innerText = `LEVEL ${level}`;
+        if (levelInfo && xpFill) {
+            levelInfo.innerText = `Level ${level}`;
         
             const percent = (currentXP / xpToNext) * 100;
             xpFill.style.width = Math.max(0, Math.min(100, percent)) + "%";
-            xpText.innerText = `${Math.round(currentXP)} / ${xpToNext} XP`;
-        
-            // Gradient efekt pre XP bar
-            xpFill.style.background = "linear-gradient(90deg, #ffaa00, #ffdd00)";
-            xpFill.style.boxShadow = "0 0 10px #ffaa00";
         }
     }

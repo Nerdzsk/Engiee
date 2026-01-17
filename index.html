@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Engee 3D - Modular System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/00-root.css">
     <link rel="stylesheet" href="css/01-base.css">
     <link rel="stylesheet" href="css/02-energy-orb.css">
@@ -17,13 +20,43 @@
     <!-- HUD FRAME (Tier 1: Rusted) -->
     <div class="hud-frame hud-frame--tier-rusted" aria-hidden="true">
         <img class="hud-frame-img" src="./assets/Rusted/HUD_Frame_Tier_Rusted.png" alt="HUD Frame Tier Rusted" />
+        <div id="transfer-wave-overlay" class="transfer-wave-overlay"></div>
     </div>
-    <div class="hud-top-center">
-        <div class="top-center-label">ACC</div>
-        <div class="acc-container acc-wide">
-            <div id="acc-fill" style="width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+
+    <!-- LEVEL & XP TOP CENTER -->
+    <div class="hud-top-center-level">
+        <div class="level-xp-container">
+            <div class="xp-text-wrapper">
+                <div class="xp-bar-container">
+                    <div id="xp-fill" class="xp-bar-fill"></div>
+                </div>
+                <div id="level-info" class="level-number">Level 1</div>
+            </div>
         </div>
-        <div id="acc-text" class="top-center-text">0 UNITS (READY TO TRANSFER)</div>
+    </div>
+    <!-- SKILLS BUTTON ASSET -->
+    <div id="skills-btn-asset" class="skills-btn-asset">
+        <img src="./assets/Rusted/skill_button_rusted.png" alt="Skills" />
+        <div class="skills-btn-text">
+            <span class="skills-btn-label">Schopnosti</span>
+            <span class="skills-btn-key">(C)</span>
+        </div>
+    </div>
+    <!-- BUTTONS TOP RIGHT -->
+    <div class="hud-buttons-top-right">
+        <div class="controls-row">
+            <div id="skill-points-indicator" class="skill-points-indicator hidden" style="display: none;" title="Unspent skill points — click to open">
+                ⭐ <span id="skill-points-count">0</span>
+            </div>
+            <button id="inventory-btn" class="hud-btn hud-btn-green">[I] INVENTORY</button>
+            <button id="kodex-btn" class="hud-btn hud-btn-orange">[K] KODEX</button>
+            <button id="quest-btn" class="hud-btn hud-btn-purple">[J] QUESTS</button>
+        </div>
+    </div>
+
+    <!-- TRANSFER BUTTON -->
+    <div id="transfer-btn" class="transfer-btn-asset">
+        <img src="./assets/Rusted/TS_button_rusted.png" alt="Transfer to Main System" />
     </div>
 
     <div class="hud-bottom">
@@ -32,6 +65,16 @@
             <img class="energy-orb-img" src="./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png" alt="Base Energy Orb">
             <div class="energy-orb-liquid" id="energy-orb-liquid"></div>
         </div>
+        <!-- HP Text pod orbom -->
+        <div class="energy-orb-hp-display" id="energy-orb-hp-display">HP: 0 / 0</div>
+
+        <!-- ACCUMULATOR ORB: Modrý orb vedľa zeleného -->
+        <div class="accumulator-orb" id="accumulator-orb">
+            <img class="energy-orb-img" src="./assets/Rusted/HUD_accumulator_Orb_Rusted.png" alt="Accumulator Orb">
+            <div class="energy-orb-liquid" id="accumulator-orb-liquid"></div>
+        </div>
+        <!-- ACC Text pod accumulator orbom -->
+        <div class="accumulator-orb-display" id="accumulator-orb-display">ACC: 0 / 0</div>
 
         <!-- LEFT MODULE: Orb + Energy bar -->
         <div class="hud-left">
@@ -45,32 +88,16 @@
             <div id="sync-indicator" class="sync-indicator">STATUS: SYNC_READY</div>
         </div>
 
-        <!-- CENTER MODULE: Controls + Transfer + Status -->
+        <!-- CENTER MODULE: Status only -->
         <div class="hud-center">
-            <div class="controls-row">
-                <button id="skills-btn" class="hud-btn hud-btn-yellow">[C] SKILLS</button>
-                <div id="skill-points-indicator" class="skill-points-indicator hidden" title="Unspent skill points — click to open">
-                    ⭐ <span id="skill-points-count">0</span>
-                </div>
-                <button id="inventory-btn" class="hud-btn hud-btn-green">[I] INVENTORY</button>
-                <button id="kodex-btn" class="hud-btn hud-btn-orange">[K] KODEX</button>
-                <button id="quest-btn" class="hud-btn hud-btn-purple">[J] QUESTS</button>
-            </div>
-            <button id="transfer-btn" class="transfer-btn">TRANSFER TO MAIN SYSTEM</button>
             <div class="neural-link-panel">
                 <div class="neural-label">Neural_Link_Status</div>
                 <div id="mobile-service-status" class="mobile-status">MOBILE_SYSTEM: OFFLINE</div>
             </div>
         </div>
 
-        <!-- RIGHT MODULE: Level + XP bar -->
+        <!-- RIGHT MODULE: (Reserved for future use) -->
         <div class="hud-right">
-            <div id="level-info" class="level-badge">LEVEL 1</div>
-            <div class="label-power">LEVEL PROGRESS</div>
-            <div class="bar-container xp-wide" style="background: rgba(255, 170, 0, 0.1); border: 1px solid #ffaa00;">
-                <div id="xp-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ffaa00, #ffdd00); box-shadow: 0 0 10px #ffaa00; transition: width 0.3s ease;"></div>
-            </div>
-            <div id="xp-text" class="status-text" style="color: #ffaa00; font-size: 11px;">0 / 100 XP</div>
         </div>
     </div>
 </div>

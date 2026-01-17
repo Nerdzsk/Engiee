@@ -21,7 +21,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background-image: url('./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
+    background-image: url('../assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
     background-repeat: no-repeat;
     background-position: center center;
     background-size: 100% 100%;
@@ -35,7 +35,7 @@
     content: "";
     position: absolute;
     inset: -1%;
-    background-image: url('./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
+    background-image: url('../assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
     background-repeat: no-repeat;
     background-position: center center;
     background-size: 102% 102%;
@@ -76,3 +76,219 @@
 .hud-left #energy-hp-text { display: none; }
 .hud-left .sync-indicator { display: none; }
 .hud-left .label-power { display: none; }
+
+/* HP text pod energy orbom */
+.energy-orb-hp-display {
+    position: absolute;
+    bottom: calc(2vw - 5px);
+    left: calc(16vw + 20px);
+    text-align: center;
+    color: #44ff41;
+    font-family: 'VT323', monospace;
+    font-size: 2.34vw;
+    font-weight: 400;
+    letter-spacing: 0.1vw;
+    text-shadow: 0 0 8px rgba(68, 255, 65, 0.6), 0 0 12px rgba(68, 255, 65, 0.4);
+    z-index: 911;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* === Accumulator Orb (Modrý) === */
+.accumulator-orb {
+    --fill-percent: 0%;
+    --fill-fraction: 0;
+    position: absolute;
+    bottom: 2.0vw;
+    right: calc(2.15vw + 25px);
+    z-index: 910;
+    width: 11.25vw;
+    height: 10vw;
+    background: none;
+    border-radius: 50%;
+    overflow: hidden;
+    filter: drop-shadow(0 0 20px rgba(0,255,255,0.5));
+    transition: filter 0.3s ease;
+}
+
+.accumulator-orb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('../assets/Rusted/HUD_accumulator_Orb_Rusted.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 100% 100%;
+    clip-path: inset(calc(100% - var(--fill-percent)) 0 0 0);
+    opacity: 0.92;
+    transition: clip-path 0.3s ease, opacity 0.3s ease;
+}
+
+/* Jemný vnútorný pohyb energie v akumulátore */
+.accumulator-orb::before {
+    content: "";
+    position: absolute;
+    inset: -1%;
+    background-image: url('../assets/Rusted/HUD_accumulator_Orb_Rusted.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: 102% 102%;
+    opacity: calc(var(--fill-fraction) * 0.32);
+    mix-blend-mode: screen;
+    filter: blur(0.18vw);
+    transform-origin: 50% 50%;
+    animation: orbSlowSpin 14s linear infinite;
+    pointer-events: none;
+}
+
+/* Pulzovanie glowu pri vysokom akumulátore */
+.accumulator-orb.high-energy {
+    animation: accOrbGlowDynamic 2.2s ease-in-out infinite;
+}
+
+@keyframes accOrbGlowDynamic {
+    0%,100% { filter: drop-shadow(0 0 14px rgba(0,255,255,0.35)); }
+    50% { filter: drop-shadow(0 0 24px rgba(0,255,255,0.55)); }
+}
+
+/* ACC text pod accumulator orbom */
+.accumulator-orb-display {
+    position: absolute;
+    bottom: calc(2vw - 5px);
+    right: calc(16vw + 30px);
+    text-align: center;
+    color: #00ffff;
+    font-family: 'VT323', monospace;
+    font-size: 2.0vw;
+    font-weight: 400;
+    letter-spacing: 0.1vw;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.6), 0 0 12px rgba(0, 255, 255, 0.4);
+    z-index: 911;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* === LEVEL & XP TOP CENTER === */
+.hud-top-center-level {
+    position: absolute;
+    top: calc(0.5vw - 141px);
+    left: calc(50% - 15px);
+    transform: translateX(-50%);
+    z-index: 920;
+    pointer-events: none;
+}
+
+.level-xp-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.xp-text-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+}
+
+.level-display {
+    display: none;
+}
+
+.level-number {
+    font-family: 'VT323', monospace;
+    font-size: 0.9vw;
+    font-weight: 400;
+    color: #ffdd00;
+    letter-spacing: 0.05vw;
+    text-shadow: 0 0 6px rgba(255, 170, 0, 0.8), 0 0 12px rgba(255, 170, 0, 0.5);
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+    margin-top: 6px;
+}
+
+/* Blikanie Level textu keď sú dostupné skill body */
+.level-number.skill-available-blink {
+    animation: levelSkillBlink 1.5s ease-in-out infinite;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+@keyframes levelSkillBlink {
+    0%, 100% {
+        color: #ffdd00;
+        text-shadow: 0 0 6px rgba(255, 170, 0, 0.8), 0 0 12px rgba(255, 170, 0, 0.5);
+    }
+    50% {
+        color: #00ffff;
+        text-shadow: 0 0 12px rgba(0, 255, 255, 1), 0 0 20px rgba(0, 255, 255, 0.7), 0 0 30px rgba(0, 255, 255, 0.5);
+    }
+}
+
+/* Energy Transfer Effect - Wave Overlay */
+.transfer-wave-overlay {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20vh;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        transparent 35%,
+        rgba(0, 255, 255, 0.3) 47%,
+        rgba(0, 255, 200, 0.4) 50%,
+        rgba(0, 255, 102, 0.3) 53%,
+        transparent 65%,
+        transparent 100%
+    );
+    background-size: 300% 100%;
+    background-position: 0% 0;
+    z-index: 905;
+}
+
+.transfer-wave-overlay.active {
+    opacity: 0.7;
+    animation: frameWaveTransfer 1.5s ease-in-out forwards;
+}
+
+@keyframes frameWaveTransfer {
+    0% {
+        background-position: 0% 0;
+        opacity: 1;
+    }
+    100% {
+        background-position: 100% 0;
+        opacity: 1;
+    }
+}
+
+.xp-bar-container {
+    position: relative;
+    width: 11vw;
+    height: 0.9vw;
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.15), rgba(0, 0, 0, 0.6));
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.3), inset 0 0 6px rgba(0, 0, 0, 0.7);
+    margin-top: -7px;
+}
+
+.xp-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffaa00 0%, #ffdd00 50%, #ffaa00 100%);
+    background-size: 200% 100%;
+    animation: xpShimmer 3s linear infinite;
+    box-shadow: 0 0 12px rgba(255, 170, 0, 0.8), inset 0 0 6px rgba(255, 255, 255, 0.4);
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes xpShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

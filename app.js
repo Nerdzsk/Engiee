@@ -5,6 +5,7 @@ import { db, watchRoom, watchItems, watchPlayer, transferEnergy, markDialogueAsS
 import { setupControls, updateMovement } from './controls.js';
 import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjects } from './world.js';
 import { updateCamera } from './camera.js';
+import { handleZoom } from './camera.js';
 import { generateItems, animateItems, currentItemsData } from './items.js';
 import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD } from './hud.js';
 import { initSkillsUI, toggleSkillsModal } from './skills.js';
@@ -107,21 +108,23 @@ watchPlayer("robot1", (playerData) => {
         initQuestsUI("robot1");
         // Initialize skills indicator once
         if (!window._skillIndicatorInitialized) {
-            const indicator = document.getElementById('skill-points-indicator');
-            const countEl = document.getElementById('skill-points-count');
-            if (indicator && countEl) {
-                indicator.addEventListener('click', () => {
-                    // Open skills modal via button handler
-                    toggleSkillsModal();
+            const levelInfo = document.getElementById('level-info');
+            if (levelInfo) {
+                // Click handler pre Level text - otvorí Skills modal
+                levelInfo.addEventListener('click', () => {
+                    // Kliknutie funguje len keď bliká (sú dostupné skill body)
+                    if (levelInfo.classList.contains('skill-available-blink')) {
+                        toggleSkillsModal();
+                    }
                 });
-                // Watch skills to toggle indicator visibility
+                
+                // Watch skills to toggle Level text blinking
                 watchPlayerSkills('robot1', ({ skillPointsAvailable }) => {
                     try {
                         if (skillPointsAvailable && skillPointsAvailable > 0) {
-                            countEl.textContent = String(skillPointsAvailable);
-                            indicator.classList.remove('hidden');
+                            levelInfo.classList.add('skill-available-blink');
                         } else {
-                            indicator.classList.add('hidden');
+                            levelInfo.classList.remove('skill-available-blink');
                         }
                     } catch (e) {
                         console.warn('Skill indicator update failed:', e);
@@ -379,13 +382,51 @@ window.addEventListener('keydown', (e) => {
 
 // --- HUD BUTTON LISTENERS ---
 
-document.getElementById('skills-btn').addEventListener('click', toggleSkillsModal);
+document.getElementById('skills-btn-asset').addEventListener('click', toggleSkillsModal);
 document.getElementById('inventory-btn').addEventListener('click', toggleInventoryModal);
 
 
 
 setupControls(robot);
-document.getElementById('transfer-btn').onclick = () => transferEnergy("robot1");
+
+// Energy transfer with visual effect
+function playEnergyTransferEffect(callback) {
+    const overlay = document.getElementById('transfer-wave-overlay');
+    
+    console.log('playEnergyTransferEffect called', overlay);
+    
+    if (!overlay) {
+        console.log('overlay not found!');
+        if (callback) callback();
+        return;
+    }
+    
+    // Activate wave effect on overlay
+    overlay.classList.add('active');
+    console.log('active class added to overlay');
+    
+    // Execute callback earlier, then remove overlay after animation
+    setTimeout(() => {
+        if (callback) callback();
+        console.log('energy transfer executed');
+    }, 1000);
+    
+    setTimeout(() => {
+        overlay.classList.remove('active');
+        console.log('active class removed from overlay');
+    }, 1500);
+}
+
+document.getElementById('transfer-btn').onclick = () => {
+    console.log('Transfer button clicked!');
+    playEnergyTransferEffect(() => transferEnergy("robot1"));
+};
+
+// Mouse wheel zoom
+window.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    handleZoom(event.deltaY);
+}, { passive: false });
 
 const clock = new THREE.Clock();
 function animate() {

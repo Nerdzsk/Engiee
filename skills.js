@@ -41,16 +41,20 @@ export function initSkillsUI(playerId) {
 
     const modal = document.getElementById('skills-modal');
     const closeBtn = document.getElementById('skills-close-btn');
-    const skillsBtn = document.getElementById('skills-btn');
+    const skillsBtnAsset = document.getElementById('skills-btn-asset');
 
-    if (!modal || !closeBtn || !skillsBtn) {
+    if (!modal || !closeBtn) {
         console.warn('Skills modal elements not found');
         return;
     }
 
     // Event listeners
     closeBtn.addEventListener('click', toggleSkillsModal);
-    skillsBtn.addEventListener('click', toggleSkillsModal);
+    
+    // Event listener pre grafický asset button
+    if (skillsBtnAsset) {
+        skillsBtnAsset.addEventListener('click', toggleSkillsModal);
+    }
 
     // Klávesa C na otvorenie/zatvorenie
     document.addEventListener('keydown', (e) => {

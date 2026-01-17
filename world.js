@@ -30,17 +30,30 @@ export function generateRoom(scene, data) {
         });
     }
 
-    // 2. PODLAHA (Ponechávame tvoju pôvodnú)
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 });
-    const floorGeo = new THREE.BoxGeometry(1, 0.1, 1);
-    for (let x = -halfW; x <= halfW; x++) {
-        for (let z = -halfD; z <= halfD; z++) {
-            const tile = new THREE.Mesh(floorGeo, floorMat);
-            tile.position.set(x, -0.05, z);
-            scene.add(tile);
-            worldObjects.push(tile);
-        }
-    }
+    // 2. PODLAHA S TEXTÚROU
+    const textureLoader = new THREE.TextureLoader();
+    const floorTexture = textureLoader.load('assets/Rooms/floor1.png');
+    floorTexture.wrapS = THREE.RepeatWrapping;
+    floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(width / 4, depth / 4); // Opakuje textúru každé 4 jednotky
+    floorTexture.magFilter = THREE.NearestFilter;
+    floorTexture.minFilter = THREE.NearestFilter;
+    floorTexture.anisotropy = 16;
+    
+    const floorMat = new THREE.MeshStandardMaterial({ 
+        map: floorTexture,
+        color: 0x666666,
+        metalness: 0.85,
+        roughness: 0.3,
+        envMapIntensity: 1.5
+    });
+    
+    // Jedna veľká podlaha presne podľa veľkosti miestnosti
+    const floorGeo = new THREE.BoxGeometry(width + 1, 0.1, depth + 1);
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.position.set(0, -0.05, 0);
+    scene.add(floor);
+    worldObjects.push(floor);
 
    // // 3. NAČÍTANIE 3D MODELU STENY
 // 3. NAČÍTANIE 3D MODELU STENY

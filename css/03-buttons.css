@@ -1,10 +1,24 @@
 /* 03-buttons.css - HUD Buttons & Controls */
 
 /* Buttons row */
+/* Buttons Top Right */
+.hud-buttons-top-right {
+    position: absolute;
+    top: 1.5vw;
+    right: 1vw;
+    z-index: 920;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+    max-width: 350px;
+    pointer-events: auto;
+}
+
 .controls-row { display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 6px; }
 
 .hud-btn {
-    flex: 1; padding: 8px; font-family: 'Rajdhani', sans-serif; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; font-size: 10px; cursor: pointer; border-radius: 4px; transition: all 0.2s ease; border: 2px solid transparent; background: rgba(255,255,255,0.05);
+    flex: 1; padding: 8px; font-family: 'VT323', monospace; letter-spacing: 1.5px; font-weight: 400; text-transform: uppercase; font-size: 16px; cursor: pointer; border-radius: 4px; transition: all 0.2s ease; border: 2px solid transparent; background: rgba(255,255,255,0.05);
 }
 
 .hud-btn-yellow { color: var(--hud-accent-yellow); border-color: var(--hud-accent-yellow); box-shadow: 0 0 12px rgba(255,255,0,0.15); background: linear-gradient(45deg, rgba(255,255,0,0.12), rgba(255,200,0,0.12)); }
@@ -15,10 +29,122 @@
 .hud-btn:hover { transform: translateY(-1px); box-shadow: 0 0 18px rgba(255,255,255,0.12); }
 
 .transfer-btn {
-    width: 100%; padding: 10px; background: linear-gradient(45deg, rgba(0,170,255,0.25), rgba(0,255,255,0.25)); color: #e0ffff; border: 2px solid #00f2fe; border-radius: 4px; box-shadow: 0 0 15px rgba(0,242,254,0.35); cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; transition: all 0.2s ease; font-size: 10px;
+    width: 100%; padding: 10px; background: linear-gradient(45deg, rgba(0,170,255,0.25), rgba(0,255,255,0.25)); color: #e0ffff; border: 2px solid #00f2fe; border-radius: 4px; box-shadow: 0 0 15px rgba(0,242,254,0.35); cursor: pointer; font-family: 'VT323', monospace; letter-spacing: 1.5px; font-weight: 400; text-transform: uppercase; transition: all 0.2s ease; font-size: 16px;
 }
 
 .transfer-btn:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(0,242,254,0.55); }
+
+/* Transfer button as asset - centered on frame */
+.transfer-btn-asset {
+    position: fixed !important;
+    bottom: calc(10vh - 57px);
+    left: 50%;
+    transform: translateX(-50%) translateX(-3px);
+    width: calc(4vh * 4 + 86px);
+    height: 4vh;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    filter: drop-shadow(0 0 8px rgba(0, 242, 254, 0.3));
+}
+
+.transfer-btn-asset img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.transfer-btn-asset::after {
+    content: 'PRESUN ENERGIE';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'VT323', monospace;
+    font-size: 1.8vh;
+    letter-spacing: 0.15em;
+    color: #00f2fe;
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.6), 0 0 15px rgba(0, 242, 254, 0.4);
+    pointer-events: none;
+    font-weight: 400;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.transfer-btn-asset:hover {
+    filter: drop-shadow(0 0 15px rgba(0, 242, 254, 0.6)) drop-shadow(0 0 25px rgba(0, 242, 254, 0.4));
+    transform: translateX(-50%) translateX(-3px) translateY(-2px);
+}
+
+.transfer-btn-asset:hover::after {
+    text-shadow: 0 0 12px rgba(0, 242, 254, 0.9), 0 0 20px rgba(0, 242, 254, 0.6), 0 0 30px rgba(0, 242, 254, 0.4);
+}
+
+/* Skills button as asset - under Level text */
+.skills-btn-asset {
+    position: fixed !important;
+    bottom: calc(10vh - 7px);
+    left: 50%;
+    transform: translateX(-50%) translateX(-178px) scaleX(1.38);
+    width: auto;
+    height: calc(7vh - 21px);
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    filter: drop-shadow(0 0 6px rgba(255, 221, 0, 0.3));
+}
+
+.skills-btn-asset img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.skills-btn-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.skills-btn-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    color: #FFD700;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+}
+
+.skills-btn-key {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 900;
+    color: #FFD700;
+    letter-spacing: 0.5px;
+}
+
+.skills-btn-asset:hover {
+    filter: drop-shadow(0 0 12px rgba(255, 221, 0, 0.6)) drop-shadow(0 0 20px rgba(255, 221, 0, 0.4));
+    transform: translateX(-50%) translateX(-176px) scaleX(1.26) translateY(-2px);
+}
+
+.skills-btn-asset:hover .skills-btn-label {
+    color: #FFFFFF;
+}
+
+.skills-btn-asset:hover .skills-btn-key {
+    color: #FFFFFF;
+}
 
 .neural-link-panel {
     margin-top: 8px;
@@ -42,9 +168,9 @@
     border: 2px solid #ffff00;
     color: #ffff00;
     border-radius: 999px;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 900;
-    font-size: 11px;
+    font-family: 'VT323', monospace;
+    font-weight: 400;
+    font-size: 18px;
     box-shadow: 0 0 16px rgba(255,255,0,0.55);
     cursor: pointer;
     transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;

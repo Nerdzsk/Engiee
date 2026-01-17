@@ -235,9 +235,14 @@ export function updateMovement(robot) {
             }
         });
     } else {
+        // Obnov farbu len ak bola predtým zmenená na čiernu
         robot.traverse((child) => {
             if (child.isMesh && child.userData.originalColor) {
-                child.material.color.setHex(child.userData.originalColor);
+                const currentColor = child.material.color.getHex();
+                // Obnov farbu len ak je robot čierny (0x111111) alebo tmavý
+                if (currentColor === 0x111111 || currentColor < 0x222222) {
+                    child.material.color.setHex(child.userData.originalColor);
+                }
             }
         });
     }

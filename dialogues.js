@@ -95,6 +95,10 @@ ${!hasIntelligence ? 'CHYBA: Nemáš dosť intelektu na analýzu systému dverí
             const canAfford = currentAccumulator >= cost;
             
             return {
+                avatar: {
+                    type: 'video',
+                    src: 'assets/Engiee AI/angie prvy kontakt.mp4'
+                },
                 text: "Detegujem poškodenú nabíjaciu stanicu typu 'Nova-7'. Obvody sú prerušené, ale konštrukcia je stabilná. Na rekalibráciu systému a opravu induktorov je potrebných " + cost + " jednotiek energie z tvojho externého akumulátora.",
                 options: [
                     { 

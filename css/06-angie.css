@@ -4,9 +4,9 @@
 #angie-ui {
     position: absolute;
     top: 30px;
-    right: 30px;
+    left: 30px;
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: flex-start;
     z-index: 2000;
     pointer-events: auto; 
@@ -16,22 +16,19 @@
 
 #angie-ui.hidden {
     opacity: 0 !important;
-    transform: translateX(50px);
+    transform: translateX(-50px) translateY(-50px);
 }
 
 /* ANGIE Avatar Container - Clickable */
 #angie-avatar {
-    width: 120px;
-    height: 120px;
-    border: 3px solid #00ffff;
-    background: radial-gradient(circle, rgba(0, 255, 255, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
-    box-shadow: 0 0 25px rgba(0, 255, 255, 0.6), inset 0 0 15px rgba(0, 255, 255, 0.4);
-    overflow: hidden;
+    width: 180px;
+    height: 180px;
+    overflow: visible;
     position: relative;
-    clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 #engee-avatar-img {
@@ -43,9 +40,9 @@
 
 /* ANGIE Dialogue Content Area */
 #angie-content {
-    margin-right: 20px;
+    margin-left: 20px;
     background: linear-gradient(135deg, rgba(0, 20, 30, 0.95) 0%, rgba(0, 5, 10, 0.9) 100%);
-    border-right: 5px solid #00ffff;
+    border-left: 5px solid #00ffff;
     padding: 20px 25px;
     min-width: 300px;
     max-width: 450px;
