@@ -59,6 +59,118 @@ speak(ENGEE_DIALOGUES.INTRO, async () => {
 
 ### Problematika cache a reload
 - **Problém**: `window.location.reload()` alebo `reload(true)` môžu cachovať JSON súbory
+- **Riešenie**: Multi-layer prístup - server headers + client cache busting + Firebase reset
+
+### Implementácia v `game-menu.js`
+```javascript
+// 1. Cleanup (video, storage, service worker cache)
+const introVideo = document.getElementById('intro-video');
+if (introVideo) {
+    video.pause();
+    video.currentTime = 0;
+    video.src = ''; // Kritické!
+}
+
+// 2. Ulož zálohu a resetuj
+await saveGame(PLAYER_ID, 'before_reset');
+await resetGame(PLAYER_ID); // Resetuje JSON + Firebase
+
+// 3. Wait for disk write
+await new Promise(resolve => setTimeout(resolve, 500));
+
+// 4. Hard reload s cache busting
+window.location.href = window.location.origin + window.location.pathname + '?_=' + Date.now();
+```
+
+### Server-side cache prevention (`server.py`)
+```python
+def end_headers(self):
+    # KRITICKÉ - bez týchto headerov browser cachuje JSON!
+    self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+    self.send_header('Pragma', 'no-cache')
+    self.send_header('Expires', '0')
+    super().end_headers()
+```
+
+### Client-side cache busting (`app.js`)
+```javascript
+// Helper funkcia pre cache-free fetch
+const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+
+// Použitie
+fetchNoCache('rooms.json').then(res => res.json());
+fetchNoCache('player_quests.json').then(res => res.json());
+```
+
+### Player state loading (`app.js`)
+```javascript
+// Načíta player state z JSON pri každom load/reload
+async function loadPlayerState() {
+    const response = await fetchNoCache('player_quests.json');
+    const players = await response.json();
+    const player = players.find(p => p.playerId === 'robot1');
+    
+    if (player) {
+        robot.energy = player.energy || 200;
+        robot.maxEnergy = player.maxEnergy || 200;
+        robot.accumulator = player.accumulator || 0;
+        robot.maxAccumulator = player.maxAccumulator || 10000;
+        
+        updateEnergyHUD(robot.energy, robot.maxEnergy);
+        updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+    }
+}
+loadPlayerState(); // Spusti hneď
+```
+
+### Firebase reset v `resetGame()` (`database.js`)
+```javascript
+// Resetuj lokálny JSON
+await window.saveLocalJson('player_quests.json', data);
+
+// Resetuj Firebase accumulator (pedometer)
+const playerRef = doc(db, "players", playerId);
+await updateDoc(playerRef, { accumulator: 0 });
+```
+
+### Kritické pravidlá
+- **NIKDY** nepoužívaj `reload(true)` - deprecated a nefunguje
+- **VŽDY** reštartuj Python server po zmene `server.py` (cache headers)
+- **VŽDY** resetuj Firebase accumulator spolu s lokálnym JSON
+- **VŽDY** počkaj 500ms pred reloadom (aby sa stihol uložiť JSON na disk)
+- **CLEANUP VIDEO** - `video.src = ''` je kritické, inak blokuje scénu
+
+---
+
+## Firebase Pedometer Integration
+
+### watchPedometerSteps logika
+```javascript
+// Aktualizuj LEN ak Firebase hodnota je VYŠŠIA (nové kroky)
+if (robotObj && firebaseAccumulator > robotObj.accumulator) {
+    robotObj.accumulator = Math.min(firebaseAccumulator, robotObj.maxAccumulator);
+    callback(robotObj.accumulator);
+}
+```
+
+**Prečo len pri zvýšení?**
+- Po NEW GAME je lokálne ACC = 0
+- Firebase môže mať starú hodnotu (napr. 500)
+- Podmienka `!==` by prepísala 0 → 500 ❌
+- Podmienka `>` neprepíše ak je Firebase vyššia po resete ✅
+- Ale: `resetGame()` teraz resetuje aj Firebase na 0, takže problém je vyriešený
+
+### Best practices
+- Firebase slúži **LEN pre pedometer** (kroky z mobilu)
+- Nikdy nepoužívaj Firebase pre questy, inventory, save/load
+- Pri NEW GAME resetuj **obe databázy** (JSON + Firebase)
+
+---
+
+## NEW GAME funkcionalita (LEGACY - staré poznámky)
+
+### Problematika cache a reload (DEPRECATED TEXT BELOW)
+- **Problém**: `window.location.reload()` alebo `reload(true)` môžu cachovať JSON súbory
 - **Riešenie**: Multi-step proces s cleanup a cache busting
 
 ### Implementácia v `game-menu.js`
@@ -331,15 +443,20 @@ console.log('[Quest] Quest started:', questId);
 
 1. **Cache je nepriateľ**: Používaj events, nie opakované fetches
 2. **Video môže blokovať scénu**: Vždy cleanup `video.src = ''`
-3. **reload(true) nefunguje**: Použi `location.replace()` s timestamp
+3. **reload(true) nefunguje**: Použi `window.location.href` s timestamp
 4. **Počkaj na disk write**: 500ms delay pred reloadom po save
 5. **Capacity ACC je 10000**: Nie 100 (časté chyby)
 6. **Dispatch events po zmene**: UI sa aktualizuje automaticky
 7. **Callback pattern pre dialógy**: Spúšťaj questy v callback, nie pred
 8. **Global exports len keď treba**: `window.` len pre NEW GAME a debug
+9. **Server cache headers sú kritické**: Bez nich browser cachuje navždy
+10. **loadPlayerState() pri štarte**: Synchronizuj robot objekt s JSON po každom load
+11. **Firebase reset spolu s JSON**: `resetGame()` musí resetovať obe databázy
+12. **watchPedometerSteps len pri zvýšení**: Zabráni prepísaniu po NEW GAME
 
 ---
 
-**Autor**: Vytvorené na základe riešenia NEW GAME cache issues a quest system implementation  
+**Autor**: Vytvorené na základe riešenia NEW GAME cache issues, quest system implementation a Firebase integration  
 **Dátum**: Január 2026  
-**Status**: Testované a funkčné
+**Status**: Testované a funkčné  
+**Posledná aktualizácia**: 20.1.2026 - Pridaný loadPlayerState, server cache headers, Firebase reset
