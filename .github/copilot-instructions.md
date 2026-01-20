@@ -60,3 +60,55 @@
 - Neodporúčaj raw SQL queries tam, kde Firebase SDK postačuje.
 - Nevkladaj hardcoded API keys alebo citlivé dáta do kódu – pripomeň používanie environment variables.
 - pri kazdom tvojom novom pripsevku pridaj na zaciatok tri hviezdicky pred text ***
+
+
+---
+
+## Aktuálny stav projektu (Technical Details)
+
+### Ovládanie a pohyb
+- **Klávesy**: WASD + šípky (obe fungujú rovnako)
+- **Rotácia**: Klávesy A/D rotujú MIESTNOSŤ (nie robota) - robot sa otáča spolu s miestnosťou, aby bol stale viditelný zozadu
+- **Robot model**: Scale 0.33 (1/3 pôvodnej veľkosti)
+- **Kamera**: Dynamická výška podľa zoom (1.5 pri blízkom = za plecom, až 8.5 pri ďalekom = izometrický)
+- **Zoom**: MinDistance 2, MaxDistance 25, predvolene 2 (začíname najblížšie)
+
+### Firebase integrácia
+- **DÔLEŽITÉ**: Firebase sa používa **LEN pre pedometer systém** (kroky z mobilu)
+- **watchPedometerSteps()** sleduje zmeny v `players/{playerId}/accumulator` v reálnom čase
+- **Ostatné systémy** (questy, inventár, save/load) sú **lokálne** (JSON súbory)
+- Konfigurácia: `config.local.js` (nie je v GIT, použiť `config.example.js` ako šablónu)
+
+### Transfer energie
+- **Funkcia**: `transferEnergy(playerId, robotObj)` v database.js
+- Presúva energiu z `robot.accumulator` do `robot.energy`
+- Kontroluje limity (prázdny ACC, plná batéria)
+- Automaticky aktualizúje HUD (zelený a modrý orb)
+
+### Grafické vylepšenia
+- **Osvetlenie**: 
+  - Ambient (modrastný tón 0x4a5f7f)
+  - Directional light s tieňami (2048x2048 shadow map)
+  - Hemisphere light (simulácia oblohy)
+  - 2x Point lights (cyan a orange) pre atmosféru
+- **Tiene**: Povolené na renderer, robot, steny, podlaha
+- **Materiály**: PBR (metalness, roughness) - robot 0.6/0.4, steny 0.5/0.6, podlaha 0.3/0.7
+- **Atmosféra**: Fog (10-80), pozadie 0x0f1419, tone mapping ACES Filmic
+- **Grid helper**: Odstránený z projektu
+
+### Kolízne systémy
+- **Nabíjačka (charger)**: Kruhová kolízia s polomerom 0.6 (funguje pri akejkoľvek rotácii chargeru)
+- **Steny**: wallMap (Set s koordinátmi)
+- **Itemy**: Blokujú políčko, kde ležia
+
+### Debugging nástroje (dostupné v konzole)
+- `robot` - priamy prístup k robot objektu
+- `setAccumulator(value)` - nastav ACC hodnotu
+- `fillAccumulator()` / `emptyAccumulator()` - naplň/vyprázdni ACC
+- `setEnergy(value)` - nastav HP hodnotu
+
+## Coding štandardy pre tento projekt
+- Pri pridávaní Firebase kódu: **Len pre pedometer**, nie pre gameplay logiku
+- Pri grafických úpravách: Používať PBR materiály (metalness/roughness)
+- Pri kolíziách: Preferuj kruhové kolízie pre objekty s rotáciou
+- Pri kamerových úpravách: Zachovať dynamickú výšku podľa vzdialenosti
