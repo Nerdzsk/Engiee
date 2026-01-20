@@ -12,13 +12,6 @@
 - Ak odporúčaš knižnicu alebo nástroj, pripoj krátke info, prečo je vhodný a ako ho nainštalovať.
 
 ## O projekte Engiee
-- **Typ projektu**: Full-stack webová a mobilná aplikácia (turistická/hiking tracking app s Google Maps API integráciou).
-- **Tech stack**: 
-  - Frontend: HTML, CSS, JavaScript (možno React/Vue)
-  - Backend: Node.js / Python
-  - Databáza: Firebase Realtime Database / Firestore
-  - Mobile: Android (Kotlin) + možné zdieľanie logiky s webom
-  - Mapy a lokalizácia: Google Maps API, geolokácia
 - **Architektúra**: Dodržiavame separation of concerns – repository layer pre databázové operácie, service layer pre biznis logiku, presentation layer pre UI.
 - **Coding konvencie**: 
   - Používaj dependency injection (DI) tam, kde to dáva zmysel.
@@ -37,3 +30,4 @@
 - Nepoužívaj zastaralé prístupy (napr. callback hell v JS, použiť async/await).
 - Neodporúčaj raw SQL queries tam, kde Firebase SDK postačuje.
 - Nevkladaj hardcoded API keys alebo citlivé dáta do kódu – pripomeň používanie environment variables.
+- pri kazdom tvojom novom pripsevku pridaj na zaciatok tri hviezdicky pred text ***
