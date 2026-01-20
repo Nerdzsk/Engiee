@@ -218,8 +218,11 @@ async function getQuestDataLocal(questId) {
  */
 async function checkAndShowIntro(playerId) {
     try {
+        // Cache busting helper
+        const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+        
         // Načítaj player data z player_quests.json
-        const response = await fetch('player_quests.json');
+        const response = await fetchNoCache('player_quests.json');
         const players = await response.json();
         const player = players.find(p => p.playerId === playerId);
         
@@ -369,7 +372,10 @@ function initGame() {
     }
 
     console.log('[InitGame] Načítavam rooms.json...');
-    fetch('rooms.json')
+    // Cache busting helper
+    const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+    
+    fetchNoCache('rooms.json')
         .then(res => {
             if (!res.ok) throw new Error(`rooms.json HTTP ${res.status}`);
             console.log('[InitGame] rooms.json načítaný, parsovanie...');

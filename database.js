@@ -12,6 +12,20 @@ export const db = getFirestore(app);
 console.log("[Firebase] Initialized for pedometer sync");
 
 // ============================================================
+// HELPER: CACHE-FREE FETCH
+// ============================================================
+
+/**
+ * Fetch s automatickým cache bustingom
+ * @param {string} url - URL súboru
+ * @returns {Promise<Response>}
+ */
+function fetchNoCacheHelper(url) {
+    const cacheBuster = url.includes('?') ? '&_=' : '?_=';
+    return fetch(url + cacheBuster + Date.now(), { cache: 'no-store' });
+}
+
+// ============================================================
 // PEDOMETER SYNC - Sledovanie krokov z Firebase
 // ============================================================
 
@@ -223,7 +237,7 @@ export async function resetGame(playerId) {
         player.energy = 200;
         player.maxEnergy = 200;
         player.accumulator = 0;
-        player.maxAccumulator = 100;
+        player.maxAccumulator = 10000;  // Správna kapacita ACC
         player.level = 1;
         player.xp = 0;
         player.skillPoints = 0;

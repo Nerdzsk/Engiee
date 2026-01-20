@@ -7,6 +7,13 @@ import os
 PORT = 3000
 
 class CustomHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        # DISABLE CACHING - kritické pre NEW GAME funktionalitu!
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+    
     def do_POST(self):
         if self.path.startswith('/save-json'):
             parsed = urllib.parse.urlparse(self.path)
