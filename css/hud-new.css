@@ -1,0 +1,92 @@
+/* Responsive HUD Layout for Rusted Frame */
+.hud-absolute-wrap {
+  position: fixed;
+  left: 0; bottom: 0; width: 100vw;
+  aspect-ratio: 1520/704;
+  height: auto;
+  min-height: 220px;
+  max-height: 45vh;
+  z-index: 1000;
+  pointer-events: none;
+}
+.hud-frame-bg {
+  position: absolute;
+  left: 0; top: 0; width: 100%; height: 100%;
+  background: url('./assets/Rusted/HUD_Frame_Tier_Rusted.png') no-repeat 0 0/100% 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+/* Orbs */
+.hud-orb {
+  position: absolute;
+  width: 11.5%; height: 16.2%;
+  background: rgba(0,255,0,0.08);
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+}
+.hud-orb-green {
+  left: 2.1%; bottom: 7.5%;
+  background-image: url('./assets/Rusted/HUD_baseenergyHP_Orb_Rusted.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.hud-orb-blue {
+  right: 2.1%; bottom: 7.5%;
+  background-image: url('./assets/Rusted/HUD_accumulator_Orb_Rusted.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+/* Orb Texts */
+.hud-orb-text {
+  position: absolute;
+  width: 18%;
+  font-family: 'VT323', monospace;
+  font-size: 2.6vw;
+  font-weight: 400;
+  text-shadow: 0 0 8px #000, 0 0 12px #000;
+  z-index: 3;
+  pointer-events: none;
+  text-align: center;
+}
+.hud-orb-green-text {
+  left: 0.5%; bottom: 2.5%; color: #44ff41;
+}
+.hud-orb-blue-text {
+  right: 0.5%; bottom: 2.5%; color: #00ffff;
+}
+/* Center Panel */
+.hud-center-panel {
+  position: absolute;
+  left: 50%; bottom: 10.5%;
+  width: 38%; height: 28%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 4;
+  pointer-events: auto;
+}
+.hud-btn {
+  font-family: 'VT323', monospace;
+  font-size: 1.6vw;
+  margin: 0.2vw 0.4vw;
+  padding: 0.5vw 1.2vw;
+  border-radius: 0.5vw;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.98;
+}
+.hud-btn-yellow { background: #ffe066; color: #222; }
+.hud-btn-green { background: #44ff41; color: #222; }
+.hud-btn-orange { background: #ffb366; color: #222; }
+.hud-btn-purple { background: #b366ff; color: #fff; }
+.hud-btn-main { background: #6ec6e6; color: #222; font-size: 2vw; margin-top: 0.7vw; }
+.hud-status {
+  margin-top: 0.7vw;
+  font-size: 1.2vw;
+  color: #00ff99;
+  text-shadow: 0 0 8px #000;
+}

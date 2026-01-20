@@ -1,0 +1,128 @@
+/* =====================================================
+   07-game-menu.css - Game Menu Modal (ESC)
+   ===================================================== */
+
+.game-menu-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+}
+
+.game-menu-modal.hidden {
+    display: none;
+}
+
+.game-menu-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+    border: 3px solid var(--cyan);
+    border-radius: 15px;
+    padding: 40px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 
+        0 0 30px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    animation: menuSlideIn 0.3s ease-out;
+}
+
+@keyframes menuSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.game-menu-title {
+    font-family: 'VT323', monospace;
+    font-size: 3rem;
+    color: var(--cyan);
+    text-align: center;
+    margin: 0 0 30px 0;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+    letter-spacing: 3px;
+}
+
+.game-menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.game-menu-btn {
+    font-family: 'VT323', monospace;
+    font-size: 1.8rem;
+    padding: 15px 25px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(0, 200, 200, 0.1) 100%);
+    border: 2px solid var(--cyan);
+    color: var(--cyan);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    border-radius: 8px;
+    letter-spacing: 2px;
+}
+
+.game-menu-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.3) 0%, rgba(0, 200, 200, 0.2) 100%);
+    box-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.5),
+        inset 0 0 10px rgba(0, 255, 255, 0.2);
+    transform: translateX(10px);
+    border-color: #fff;
+}
+
+.game-menu-btn:active {
+    transform: translateX(10px) scale(0.98);
+}
+
+.game-menu-btn-danger {
+    border-color: #ff3366;
+    color: #ff3366;
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.1) 0%, rgba(200, 40, 80, 0.1) 100%);
+}
+
+.game-menu-btn-danger:hover {
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.3) 0%, rgba(200, 40, 80, 0.2) 100%);
+    box-shadow: 
+        0 0 15px rgba(255, 51, 102, 0.5),
+        inset 0 0 10px rgba(255, 51, 102, 0.2);
+    border-color: #ff6699;
+}
+
+.game-menu-footer {
+    font-family: 'VT323', monospace;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    margin-top: 25px;
+    letter-spacing: 1px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .game-menu-content {
+        padding: 30px 20px;
+        max-width: 90%;
+    }
+    
+    .game-menu-title {
+        font-size: 2.5rem;
+    }
+    
+    .game-menu-btn {
+        font-size: 1.5rem;
+        padding: 12px 20px;
+    }
+}

@@ -1,103 +1,283 @@
 import * as THREE from 'three';
 import { ENGEE_DIALOGUES } from './dialogues.js';
 import { speak } from './angie.js';
-import { db, watchRoom, watchItems, watchPlayer, transferEnergy, markDialogueAsSeen, performRepairInDB, setupChargerInDB, performChargerRepairInDB, pickUpItem, watchPlayerLevel, giveXP, startQuest, getQuestData, updateQuestProgress, watchPlayerSkills } from './database.js';
+import { transferEnergy, markDialogueAsSeen, markIntroAsSeen, performRepairInDB, setupChargerInDB, performChargerRepairInDB, giveXP, startQuest, getQuestData, updateQuestProgress, watchPlayerSkills, fixObjectPositions, addToInventory, watchPedometerSteps } from './database.js';
 import { setupControls, updateMovement } from './controls.js';
 import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjects } from './world.js';
-import { updateCamera } from './camera.js';
-import { handleZoom } from './camera.js';
+import { updateCamera, handleZoom } from './camera.js';
 import { generateItems, animateItems, currentItemsData } from './items.js';
-import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD } from './hud.js';
+import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD, showQuestNotification } from './hud.js';
 import { initSkillsUI, toggleSkillsModal } from './skills.js';
 import { initInventoryUI, watchPlayerInventoryUI, toggleInventoryModal, ITEM_DESCRIPTIONS } from './inventory.js';
 import { initKodexUI, toggleKodexModal, unlockKodexEntry, watchPlayerKodexUI } from './kodex.js';
-import { initQuestsUI, toggleQuestModal } from './quests.js';
+import { initQuestsUI, toggleQuestModal, refreshQuestUI } from './quests.js';
 import { initLevelUpSystem, showLevelUpModal } from './levelup.js';
-import { addToInventory } from './database.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { initHudTierSystem, setHudTier, upgradeHudTier, HUD_TIERS } from './hud-tiers.js';
+import { initGameMenu } from './game-menu.js';
 
-// --- ZÁKLADNÁ SCÉNA ---
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-// Osvetlenie (zredukované, bez duplicít)
-const ambientLight = new THREE.AmbientLight(0x223344, 1.5);
-scene.add(ambientLight);
-
-// Hlavné svetlo pre robota
-const robotLight = new THREE.PointLight(0xffffff, 100, 10);
-robotLight.position.set(0, 3, 0);
-scene.add(robotLight);
-
-// Pomocné svetlo zozadu
-const fillLight = new THREE.PointLight(0xffffff, 30, 15);
-fillLight.position.set(5, 2, 5);
-scene.add(fillLight);
-
-renderer.toneMapping = THREE.ReinhardToneMapping;
-renderer.toneMappingExposure = 1.2;
-
-const robot = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.4), new THREE.MeshStandardMaterial({ color: 0x00ff41 }));
-robot.position.y = 0.35;
-robot.material.visible = false;
-scene.add(robot);
-
-const loader = new GLTFLoader();
-loader.load('assets/robot.glb', function (gltf) {
-    const robotModel = gltf.scene;
-    robotModel.scale.set(0.40, 0.40, 0.40);
-    robotModel.position.set(0, -0.35, 0);
-    robotModel.rotation.y = Math.PI;
-    robot.add(robotModel);
-}, undefined, function (error) {
-    console.error("Stala sa chyba pri načítaní robota:", error);
-});
-
-// --- MODULÁRNA AKTUALIZÁCIA ---
-watchRoom("room1", (data) => {
-    if (!data) return;
-    generateRoom(scene, data);
-    if (data.doors) generateDoors(scene, data.doors);
-    if (data.chargers) generateChargers(scene, data.chargers);
-});
-
-watchItems("room1", (items) => generateItems(scene, items));
-
-let isRobotInDoorZone = false;
+// Globálne premenné pre proximity logiku
 let isRobotInChargerZone = false;
-let lastEnergyHUD = null; // cache pre realtime HUD refresh
+let robot = {
+    position: { x: 0, y: 0, z: 0 },
+    accumulator: 100,
+    maxAccumulator: 10000,
+    maxEnergy: 200,
+    energy: 100
+};
+
+// === PLAYER MODEL ===
+let robotModel = null;
+const gltfLoader = new GLTFLoader();
+gltfLoader.load('assets/robot.glb', (gltf) => {
+    robotModel = gltf.scene;
+    robotModel.name = 'player_robot';
+    robotModel.position.set(robot.position.x, robot.position.y, robot.position.z);
+    robotModel.scale.set(0.33, 0.33, 0.33); // Zmenšený 3x
+    scene.add(robotModel);
+    // Vylepšenie materiálov a tieňov
+    robotModel.traverse((child) => {
+        if (child.isMesh && child.material) {
+            child.material.side = THREE.DoubleSide;
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            // Vylepšenie PBR materiálov
+            if (child.material.isMeshStandardMaterial) {
+                child.material.metalness = 0.6;
+                child.material.roughness = 0.4;
+                child.material.envMapIntensity = 1.5;
+            }
+            
+            child.material.needsUpdate = true;
+        }
+    });
+});
+let lastEnergyHUD = 0;
 let isRobotInItemZone = false;
 let nearbyItemId = null;
 
-watchPlayer("robot1", (playerData) => {
-    if (!playerData) return;
-    triggerSyncFlash();
+// === THREE.js základná inicializácia ===
+const scene = new THREE.Scene();
 
-        // Inicializuj level/XP tracking na prvý krát
-        if (!window._levelSystemInitialized) {
-            watchPlayerLevel("robot1", (levelData) => {
-                updateLevelHUD(levelData.level, levelData.currentXP, levelData.xpToNextLevel);
-            });
-                initLevelUpSystem();
-                initHudTierSystem(); // Inicializuj HUD tier systém
-            window._levelSystemInitialized = true;
+// Pridanie atmosférickej hmly
+scene.fog = new THREE.Fog(0x1a2332, 10, 80);
+scene.background = new THREE.Color(0x0f1419);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+// Start camera a bit higher and further back to avoid being inside models
+camera.position.set(0, 10, 40); // Kamera pred stredom
+camera.lookAt(0, 0, 0);
+if (!Number.isFinite(window.worldRotation)) {
+    window.worldRotation = 0;
+}
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+// Add explicit id for easier devtools inspection
+renderer.domElement.id = 'engee-canvas';
+renderer.domElement.style.position = 'fixed';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.zIndex = '1';
+renderer.setClearColor(0x0f1419, 1); // Tmavšie sci-fi pozadie
+// Grid helper odstránený (request užívateľa)
+// Sprístupni premenné globálne pre konzolu
+window.scene = scene;
+window.camera = camera;
+window.renderer = renderer; // Globálny prístup pre cleanup pri NEW GAME
+window.robot = robot; // Globálny prístup k robot objektu pre testovanie
+
+// Helper funkcie pre testovanie (volateľné z konzoly)
+window.setAccumulator = (value) => {
+    robot.accumulator = Math.max(0, Math.min(value, robot.maxAccumulator));
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+    console.log(`Akumulátor nastavený na: ${robot.accumulator}/${robot.maxAccumulator}`);
+};
+
+window.setEnergy = (value) => {
+    robot.energy = Math.max(0, Math.min(value, robot.maxEnergy));
+    updateEnergyHUD(robot.energy, robot.maxEnergy);
+    console.log(`Energia nastavená na: ${robot.energy}/${robot.maxEnergy}`);
+};
+
+window.fillAccumulator = () => {
+    robot.accumulator = robot.maxAccumulator;
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+    console.log(`Akumulátor naplnený na maximum: ${robot.maxAccumulator}`);
+};
+
+window.emptyAccumulator = () => {
+    robot.accumulator = 0;
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+    console.log(`Akumulátor vyprázdnený`);
+};
+
+// (Removed debug HUD)
+
+// END DEBUG HELPERS
+
+// Rebuild scene from scratch (lights + helpers + room)
+function resetWorldScene(roomData) {
+    console.log('[resetWorldScene] Začínam resetovanie scény s roomData:', roomData);
+    
+    // Remove all children from scene
+    while (scene.children.length > 0) {
+        scene.remove(scene.children[0]);
+    }
+    
+    console.log('[resetWorldScene] Scéna vyprázdnená, pridávam svetlá...');
+
+    // Vylepšené osvetlenie s tieňmi a atmosférou
+    // 1. Ambient svetlo (základné osvetlenie)
+    const ambient = new THREE.AmbientLight(0x4a5f7f, 0.4);
+    scene.add(ambient);
+    
+    // 2. Hlavné svetlo s tieňmi (DirectionalLight)
+    const dir = new THREE.DirectionalLight(0xffffff, 2.5);
+    dir.position.set(15, 25, 15);
+    dir.castShadow = true;
+    dir.shadow.mapSize.width = 2048;
+    dir.shadow.mapSize.height = 2048;
+    dir.shadow.camera.near = 0.5;
+    dir.shadow.camera.far = 100;
+    dir.shadow.camera.left = -30;
+    dir.shadow.camera.right = 30;
+    dir.shadow.camera.top = 30;
+    dir.shadow.camera.bottom = -30;
+    dir.shadow.bias = -0.0001;
+    scene.add(dir);
+    
+    // 3. Hemisférické svetlo (simuluje oblohu)
+    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x2c3e50, 0.6);
+    hemi.position.set(0, 50, 0);
+    scene.add(hemi);
+    
+    // 4. Bodové svetlá pre atmosféru (2 svetlá z rohov)
+    const pointLight1 = new THREE.PointLight(0x00ffff, 1.5, 30);
+    pointLight1.position.set(-10, 8, -10);
+    scene.add(pointLight1);
+    
+    const pointLight2 = new THREE.PointLight(0xff6600, 1.2, 25);
+    pointLight2.position.set(10, 6, 10);
+    scene.add(pointLight2);
+
+    // Helpers (grid odstránený)
+
+    // Room
+    if (!roomData) {
+        console.warn('resetWorldScene: missing roomData');
+        return;
+    }
+    console.log('[resetWorldScene] Generujem miestnosť...');
+    generateRoom(scene, roomData);
+    console.log('[resetWorldScene] Generujem dvere...');
+    if (roomData.doors) generateDoors(scene, roomData.doors);
+    console.log('[resetWorldScene] Generujem nabíjačky...');
+    if (roomData.chargers) generateChargers(scene, roomData.chargers);
+
+    // Re-add robot model if it was already loaded
+    if (robotModel) {
+        console.log('[resetWorldScene] Pridávam robot model späť do scény');
+        scene.add(robotModel);
+    } else {
+        console.log('[resetWorldScene] Robot model ešte nie je načítaný');
+    }
+
+    // Ensure camera looks at origin
+    camera.position.set(0, 10, 40);
+    camera.lookAt(0, 0, 0);
+}
+
+// Sprístupni globálne pre NEW GAME reset
+window.resetWorldScene = resetWorldScene;
+
+// Lokálne načítanie questov z JSON
+async function getQuestDataLocal(questId) {
+    try {
+        const response = await fetch('quests.json');
+        const quests = await response.json();
+        return quests.find(q => q.id === questId) || null;
+    } catch (e) {
+        console.error('Chyba pri načítaní quests.json:', e);
+        return null;
+    }
+}
+// [REMOVED] watchPlayer: Firestore logic deleted. Use local file logic to handle player state, quest triggers, and proximity checks.
+
+/**
+ * checkAndShowIntro - Skontroluje, či hráč už videl intro dialóg.
+ * Ak nie, zobrazí INTRO a spustí hlavný quest "quest_where_am_i".
+ * @param {string} playerId - ID hráča (napr. "robot1")
+ */
+async function checkAndShowIntro(playerId) {
+    try {
+        // Načítaj player data z player_quests.json
+        const response = await fetch('player_quests.json');
+        const players = await response.json();
+        const player = players.find(p => p.playerId === playerId);
+        
+        if (!player) {
+            console.warn(`[Intro] Hráč ${playerId} nebol nájdený.`);
+            return;
         }
+        
+        // Ak už videl intro, skonči
+        if (player.hasSeenIntro) {
+            console.log('[Intro] Hráč už videl intro dialóg, preskakujem.');
+            return;
+        }
+        
+        console.log('[Intro] Zobrazujem úvodný dialóg ENGEE...');
+        
+        // Zobraz intro dialóg
+        speak(ENGEE_DIALOGUES.INTRO, async () => {
+            console.log('[Intro] ✅ Callback bol zavolaný! Dialóg ukončený, spúšťam hlavný quest "quest_where_am_i"...');
+            
+            // Načítaj quest data a spusť ho
+            const questData = await getQuestDataLocal('quest_where_am_i');
+            console.log('[Intro] Quest data načítané:', questData);
+            
+            if (questData) {
+                const questStarted = await startQuest(playerId, 'quest_where_am_i', questData);
+                console.log('[Intro] startQuest returned:', questStarted);
+                
+                if (questStarted) {
+                    console.log('[Intro] ✅ Hlavný quest "quest_where_am_i" bol spustený.');
+                    
+                    // Zobraz notifikáciu o novom queste
+                    console.log('[Intro] Zobrazujem notifikáciu...');
+                    showQuestNotification(questData.title || 'Kde to som');
+                    
+                    // Quest UI sa automaticky aktualizuje cez 'questsUpdated' event
+                    console.log('[Intro] Quest UI sa aktualizuje automaticky cez event...');
+                } else {
 
-    updateEnergyHUD(playerData.energy || 0, playerData.maxEnergy || 200);
-    updateAccumulatorHUD(playerData.accumulator || 0, playerData.accumulatorMax || 10000);
-    updateMobileStatusHUD(playerData.serviceActive || false);
-    robot.energy = playerData.energy;
-    robot.maxEnergy = playerData.maxEnergy;
-    robot.accumulator = playerData.accumulator || 0;
+// Exportuj pre použitie v game-menu.js (NEW GAME)
+window.checkAndShowIntro = checkAndShowIntro;
+                    console.error('[Intro] ❌ Quest sa nepodarilo spustiť!');
+                }
+            } else {
+                console.error('[Intro] ❌ Quest "quest_where_am_i" nebol nájdený v quests.json!');
+            }
+            
+            // Označ intro ako videný (uloženie do player_quests.json)
+            await markIntroAsSeen(playerId);
+        });
+        
+    } catch (error) {
+        console.error('[Intro] Chyba pri kontrole intro dialógu:', error);
+    }
+}
 
-    const seen = playerData.seenDialogues || [];
-    const px = playerData.positionX ?? playerData.x ?? 0;
-    const pz = playerData.positionZ ?? playerData.z ?? 0;
-
+// --- Game Initialization Block ---
+function initGame() {
     // Inicializuj skills panel na prvý krát
     if (!window._skillsPanelInitialized) {
         initSkillsUI("robot1");
@@ -106,6 +286,8 @@ watchPlayer("robot1", (playerData) => {
         initKodexUI();
         watchPlayerKodexUI("robot1");
         initQuestsUI("robot1");
+        initGameMenu(); // Initialize Game Menu (ESC)
+        
         // Initialize skills indicator once
         if (!window._skillIndicatorInitialized) {
             const levelInfo = document.getElementById('level-info');
@@ -117,7 +299,6 @@ watchPlayer("robot1", (playerData) => {
                         toggleSkillsModal();
                     }
                 });
-                
                 // Watch skills to toggle Level text blinking
                 watchPlayerSkills('robot1', ({ skillPointsAvailable }) => {
                     try {
@@ -135,6 +316,77 @@ watchPlayer("robot1", (playerData) => {
         }
         window._skillsPanelInitialized = true;
     }
+
+    // --- INTRO DIALOG CHECK: Ak hráč ešte nevidel intro, zobraz ho a spusť hlavný quest ---
+    // Volá sa vždy pri initGame() (aj po reloade), aby sa správne zobrazil intro po NEW GAME
+    checkAndShowIntro("robot1");
+
+    // --- PEDOMETER SYNC: Sledovanie krokov z Firebase ---
+    if (!window._pedometerWatcherInitialized) {
+        console.log("[Pedometer] Inicializujem watcher pre kroky z Firebase...");
+        watchPedometerSteps("robot1", robot, (newAccumulator) => {
+            console.log(`[Pedometer] Akumulátor aktualizovaný: ${newAccumulator}`);
+            updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+        });
+        window._pedometerWatcherInitialized = true;
+    }
+
+    // --- ROOM LOADING AND RENDERING ---
+
+    // Normalize room data coming from local JSON or migrated Firestore documents
+    function normalizeRoom(room) {
+        if (!room) return room;
+        const dirMap = { north: Math.PI, south: 0, east: Math.PI / 2, west: -Math.PI / 2 };
+        const out = Object.assign({}, room);
+        out.width = Number(out.width || 10);
+        out.depth = Number(out.depth || 10);
+
+        if (Array.isArray(out.doors)) {
+            out.doors = out.doors.map(d => {
+                const nd = Object.assign({}, d);
+                if (nd.rotation === undefined && nd.direction) {
+                    nd.rotation = dirMap[String(nd.direction).toLowerCase()] ?? 0;
+                }
+                nd.x = Number(nd.x || 0);
+                nd.z = Number(nd.z || 0);
+                nd.repairCost = Number(nd.repairCost || 0);
+                return nd;
+            });
+        }
+
+        if (Array.isArray(out.chargers)) {
+            out.chargers = out.chargers.map(c => {
+                const nc = Object.assign({}, c);
+                nc.x = Number(nc.x || 0);
+                nc.z = Number(nc.z || 0);
+                nc.rotation = Number(nc.rotation || 0);
+                nc.repairCost = Number(nc.repairCost || 0);
+                return nc;
+            });
+        }
+
+        return out;
+    }
+
+    console.log('[InitGame] Načítavam rooms.json...');
+    fetch('rooms.json')
+        .then(res => {
+            if (!res.ok) throw new Error(`rooms.json HTTP ${res.status}`);
+            console.log('[InitGame] rooms.json načítaný, parsovanie...');
+            return res.json();
+        })
+        .then(rooms => {
+            console.log('[InitGame] Rooms data:', rooms);
+            if (rooms && rooms.length > 0) {
+                const raw = rooms[0];
+                const roomData = normalizeRoom(raw);
+                console.log('[InitGame] Volám resetWorldScene s roomData:', roomData);
+                resetWorldScene(roomData);
+            } else {
+                console.warn('No room data found in rooms.json');
+            }
+        })
+        .catch(err => console.error('Error loading rooms.json:', err));
 
     // Proximity detection - itemy
     if (currentItemsData && currentItemsData.length > 0) {
@@ -161,68 +413,12 @@ watchPlayer("robot1", (playerData) => {
         }
     }
 
-    if (!seen.includes("INTRO")) {
-        speak(ENGEE_DIALOGUES.INTRO);
-        markDialogueAsSeen("robot1", "INTRO");
-        // Odomkni kodex entry pre ENGEE AI
-        unlockKodexEntry("postavy_engee");
-        // Odomkni initial location a tech entries
-        unlockKodexEntry("miesta_kabina");
-        unlockKodexEntry("tech_special_system");
-        // Inicializuj main quest "Kde to som"
-        (async () => {
-            try {
-                console.log("🔍 Fetching quest data for quest_where_am_i...");
-                const questData = await getQuestData("quest_where_am_i");
-                console.log("📦 Quest data:", questData);
-                
-                if (questData) {
-                    const success = await startQuest("robot1", "quest_where_am_i", questData);
-                    console.log("✅ Quest 'Kde to som' initialized, success:", success);
-                } else {
-                    console.error("❌ Quest data not found in Firestore!");
-                }
-            } catch (error) {
-                console.error("❌ Quest initialization error:", error);
-            }
-        })();
-    }
+    // Získaj zoznam videných dialógov z playerData alebo z JSON
+    // ...existing code...
+}
 
-    const chargerPos = { x: 0, z: -4.5 };
-    const distCharger = Math.sqrt(Math.pow(px - chargerPos.x, 2) + Math.pow(pz - chargerPos.z, 2));
-    if (distCharger < 1.5) {
-        if (!isRobotInChargerZone && !seen.includes("CHARGER_FIXED")) {
-            const repairCost = 50;
-            const currentAcc = playerData.accumulator || 0;
-            const chargerDialogue = ENGEE_DIALOGUES.BROKEN_CHARGER.generate(repairCost, currentAcc);
-            speak(chargerDialogue);
-            isRobotInChargerZone = true;
-            // Odomkni kodex entries keď prvý krát vidí nabíjaciu stanicu
-            unlockKodexEntry("miesta_nabijacia_stanica");
-            unlockKodexEntry("tech_nabijacia_energia");
-        }
-    } else if (distCharger > 2.0) {
-        isRobotInChargerZone = false;
-    }
 
-    const doorPos = { x: 5.5, z: 0 };
-    const distDoor = Math.sqrt(Math.pow(px - doorPos.x, 2) + Math.pow(pz - doorPos.z, 2));
-    if (distDoor < 2.0) {
-        if (!isRobotInDoorZone && !seen.includes("DOOR_FIXED")) {
-            const repairCost = 30;
-            const currentAccumulator = playerData.accumulator || 0;
-            const playerSkills = playerData.skills || {};
-            const dynamicDialogue = ENGEE_DIALOGUES.BROKEN_DOOR.generate(repairCost, currentAccumulator, playerSkills);
-            speak(dynamicDialogue);
-            isRobotInDoorZone = true;
-            // Odomkni kodex entries keď prvý krát vidí dverí
-            unlockKodexEntry("miesta_vstup_dvere");
-            unlockKodexEntry("tech_oprava_dveri");
-        }
-    } else if (distDoor > 2.5) {
-        isRobotInDoorZone = false;
-    }
-});
+window.onload = initGame;
 
 window.addEventListener('requestRepair', async (e) => {
     const { cost } = e.detail;
@@ -387,6 +583,11 @@ document.getElementById('inventory-btn').addEventListener('click', toggleInvento
 
 
 
+
+// Ensure robot.position is defined before setupControls
+if (!robot.position) {
+    robot.position = { x: 0, y: 0, z: 0 };
+}
 setupControls(robot);
 
 // Energy transfer with visual effect
@@ -417,10 +618,19 @@ function playEnergyTransferEffect(callback) {
     }, 1500);
 }
 
-document.getElementById('transfer-btn').onclick = () => {
+document.getElementById('transfer-btn').onclick = async () => {
     console.log('Transfer button clicked!');
-    playEnergyTransferEffect(() => transferEnergy("robot1"));
-};
+    // Pošleme robot objekt do transferEnergy
+    playEnergyTransferEffect(async () => {
+        const success = await transferEnergy("robot1", robot);
+        if (success) {
+            // Aktualizuj HUD po úspešnom prenose
+            updateEnergyHUD(robot.energy, robot.maxEnergy);
+            updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+            console.log('HUD updated after energy transfer');
+        }
+    });
+}
 
 // Mouse wheel zoom
 window.addEventListener('wheel', (event) => {
@@ -434,11 +644,24 @@ function animate() {
     const delta = clock.getDelta();
     const time = Date.now() * 0.001;
 
+    // Update robot model position and rotation if loaded
+    if (robotModel) {
+        robotModel.position.set(robot.position.x, robot.position.y, robot.position.z);
+        // Synchronizuj rotáciu s robot objektom (aby sa otáčal s miestnosťou)
+        if (robot.rotation && typeof robot.rotation.y !== 'undefined') {
+            robotModel.rotation.y = robot.rotation.y;
+        }
+    }
+
     if (typeof chargerObjects !== 'undefined') {
         chargerObjects.forEach(obj => {
             const light = obj.userData.statusLight;
             if (!light) return;
-            const dist = robot.position.distanceTo(obj.position);
+            // Manual distance calculation (robot.position is plain object)
+            const dx = (robot.position.x || 0) - (obj.position.x || 0);
+            const dy = (robot.position.y || 0) - (obj.position.y || 0);
+            const dz = (robot.position.z || 0) - (obj.position.z || 0);
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (obj.userData.isBroken) {
                 light.color.setHex(0xff0000);
                 light.intensity = Math.sin(time * 10) > 0 ? 15 : 2;
@@ -461,16 +684,46 @@ function animate() {
         lastEnergyHUD = robot.energy;
         updateEnergyHUD(robot.energy, robot.maxEnergy);
     }
+    // Realtime update HUD accumulator (akumulátor)
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator || 100);
 
     if (doorMixers) doorMixers.forEach(mixer => mixer.update(delta));
     updateMovement(robot);
-    updateCamera(camera, robot);
+    // Debug override: allow freezing camera updates and force-basic-materials for visibility checks
+    if (!window.__engee_debug_noCamera) {
+        updateCamera(camera, robot);
+    } else {
+        // keep camera where it is (or set to reasonable default if requested)
+        if (window.__engee_debug_camera_pos) {
+            const p = window.__engee_debug_camera_pos;
+            camera.position.set(p.x || 0, p.y || 10, p.z || 40);
+            camera.lookAt(p.tx || 0, p.ty || 0, p.tz || 0);
+        }
+    }
+
     if (typeof animateItems === 'function') animateItems();
+
+    // If requested, force all meshes to a simple visible material once
+    if (window.__engee_debug_forceBasicMaterials && !window.__engee_debug_materials_applied) {
+        scene.traverse((obj) => {
+            if (obj.isMesh) {
+                try {
+                    obj.material = new THREE.MeshBasicMaterial({ color: 0xffffff * Math.random(), side: THREE.DoubleSide });
+                    obj.visible = true;
+                } catch (e) {
+                    // ignore
+                }
+            }
+        });
+        window.__engee_debug_materials_applied = true;
+        console.log('[DEBUG] forced basic materials on meshes');
+    }
+
     renderer.render(scene, camera);
 }
 animate();
 
-document.getElementById('skills-btn').addEventListener('click', toggleSkillsModal);
+document.getElementById('skills-btn-asset').addEventListener('click', toggleSkillsModal);
 document.getElementById('inventory-btn').addEventListener('click', toggleInventoryModal);
 document.getElementById('kodex-btn').addEventListener('click', toggleKodexModal);
 
@@ -481,11 +734,14 @@ window.hudTierAPI = {
     upgrade: upgradeHudTier,
     tiers: HUD_TIERS
 };
-console.log('🎮 HUD Tier API dostupné cez: window.hudTierAPI');
-console.log('Príklad: window.hudTierAPI.setTier(window.hudTierAPI.tiers.ADVANCED)');
+
+
 
 window.onresize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 };
+
+
+

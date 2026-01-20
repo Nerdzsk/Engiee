@@ -50,7 +50,7 @@ function resetAvatar() {
 // SECTION: Dialogue System - Typewriter Effect
 // ============================================================
 
-export function speak(dialogueObject) {
+export function speak(dialogueObject, onCompleteCallback = null) {
     if (!dialogueObject || typeof dialogueObject.text === 'undefined') {
         console.error("Angie Error: Funkcia speak nedostala text alebo objekt!", dialogueObject);
         return;
@@ -114,9 +114,15 @@ export function speak(dialogueObject) {
 
                         if (!option.next) {
                             ui.classList.add('hidden');
-                            visitedOptions = []; 
+                            visitedOptions = [];
+                            
+                            // Zavolaj callback ak bol poskytnutý a dialóg sa končí
+                            if (onCompleteCallback && typeof onCompleteCallback === 'function') {
+                                console.log('[speak] Volám onCompleteCallback...');
+                                onCompleteCallback();
+                            }
                         } else {
-                            speak(option.next);
+                            speak(option.next, onCompleteCallback);
                         }
                     };
                     btnContainer.appendChild(btn);

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "item_test",
+    "type": "battery_pack",
+    "location": "room1",
+    "status": "on_ground",
+    "coords": { "x": 2, "z": 2 },
+    "tier": "common",
+    "value": 100
+  }
+]

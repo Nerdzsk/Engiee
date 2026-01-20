@@ -125,3 +125,34 @@ export function updateMobileStatusHUD(isActive) {
             xpFill.style.width = Math.max(0, Math.min(100, percent)) + "%";
         }
     }
+// 6. Logika pre quest notifikácie (toast messages)
+/**
+ * showQuestNotification - Zobrazí toast notifikáciu pre quest event
+ * @param {string} questTitle - Názov questu
+ * @param {string} message - Text notifikácie (voliteľný, default: "bol pridaný do denníka")
+ */
+export function showQuestNotification(questTitle, message = "bol pridaný do denníka") {
+    const notification = document.getElementById('quest-notification');
+    const textEl = document.getElementById('quest-notification-text');
+    
+    if (!notification || !textEl) {
+        console.warn('Quest notification elements not found');
+        return;
+    }
+    
+    // Nastaví text
+    textEl.innerText = `Quest: ${questTitle} ${message}`;
+    
+    // Zobraz notifikáciu
+    notification.classList.remove('hidden', 'slide-out');
+    
+    // Po 4 sekundách ju skry
+    setTimeout(() => {
+        notification.classList.add('slide-out');
+        
+        // Po dokončení animácie ju úplne skry
+        setTimeout(() => {
+            notification.classList.add('hidden');
+        }, 500);
+    }, 4000);
+}

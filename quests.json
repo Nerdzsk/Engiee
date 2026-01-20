@@ -1,0 +1,88 @@
+[
+  {
+    "id": "quest_where_am_i",
+    "title": "Kde to som",
+    "description": "Zobudil si sa v záhadnom zariadení bez pamäti. Musíš pochopiť svoje okolie a obnoviť systémy.",
+    "type": "main",
+    "objectives": [
+      { "id": "obj_1", "description": "Oprav pokazenú nabíjaciu stanicu", "target": 1, "type": "repair_charger" },
+      { "id": "obj_2", "description": "Oprav pokazené dvere", "target": 1, "type": "repair_door" }
+    ],
+    "subquests": ["quest_broken_charger", "quest_broken_door"],
+    "rewards": {
+      "xp": 100,
+      "items": [],
+      "skillPoints": 1
+    },
+    "requirements": {
+      "level": 1,
+      "skills": {}
+    },
+    "aiDialogues": [
+      {
+        "trigger": "start",
+        "text": "Zobudil si sa v záhadnom zariadení. Najprv oprav nabíjaciu stanicu a dvere, aby si mohol pokračovať."
+      },
+      {
+        "trigger": "complete",
+        "text": "Výborne! Nabíjacia stanica a dvere sú opravené. Môžeš pokračovať v objavovaní systému."
+      }
+    ]
+  },
+  {
+    "id": "quest_broken_charger",
+    "title": "Oprav pokazenú nabíjaciu stanicu",
+    "description": "Nabíjacia stanica je poškodená a nefunguje. Oprav ju, aby si mohol dobíjať energiu.",
+    "type": "subquest",
+    "objectives": [
+      { "id": "obj_1", "description": "Oprav nabíjačku v miestnosti", "target": 1, "type": "repair_charger" }
+    ],
+    "rewards": {
+      "xp": 50,
+      "items": [],
+      "skillPoints": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": {}
+    },
+    "aiDialogues": [
+      {
+        "trigger": "start",
+        "text": "Táto nabíjacia stanica je pokazená. Oprav ju, aby si mohol obnoviť energiu."
+      },
+      {
+        "trigger": "complete",
+        "text": "Nabíjacia stanica je opravená! Teraz môžeš dobíjať energiu."
+      }
+    ]
+  },
+  {
+    "id": "quest_broken_door",
+    "title": "Oprav pokazené dvere",
+    "description": "Dvere sú zablokované. Oprav ich, aby si mohl pokračovať.",
+    "type": "subquest",
+    "objectives": [
+      { "id": "obj_1", "description": "Oprav dvere v miestnosti", "target": 1, "type": "repair_door" }
+    ],
+    "rewards": {
+      "xp": 30,
+      "items": [],
+      "skillPoints": 0
+    },
+    "requirements": {
+      "level": 1,
+      "skills": {}
+    },
+    "aiDialogues": [
+      {
+        "trigger": "start",
+        "text": "Dvere sú pokazené. Skús ich opraviť, aby si sa dostal ďalej."
+      },
+      {
+        "trigger": "complete",
+        "text": "Dvere sú opravené! Môžeš pokračovať."
+      }
+    ]
+  }
+]

@@ -1,72 +1,134 @@
-// 1. JEDNOTNÉ IMPORTY
-import { firebaseConfig } from './config.js'; 
+// ============================================================
+// FIREBASE INICIALIZÁCIA (PRE PEDOMETER)
+// ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
-    getFirestore, 
-    enableIndexedDbPersistence,
-    doc, 
-    getDoc, 
-    setDoc, 
-    updateDoc, 
-    onSnapshot,
-    collection,
-    query,
-    where,
-    deleteDoc,
-    increment,
-    arrayUnion,
-    runTransaction
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { firebaseConfig } from './config.js';
 
-// 2. INICIALIZÁCIA
+// Inicializuj Firebase
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        // Viacero otvorených tabov naraz (persistence funguje len v jednom)
-        console.warn("Persistence failed: Multiple tabs open");
-    } else if (err.code == 'unimplemented') {
-        // Prehliadač nepodporuje túto funkciu
-        console.warn("Persistence is not supported by this browser");
+console.log("[Firebase] Initialized for pedometer sync");
+
+// ============================================================
+// PEDOMETER SYNC - Sledovanie krokov z Firebase
+// ============================================================
+
+/**
+ * Sleduje zmeny v akumulátore z Firebase (kroky z mobilu)
+ * @param {string} playerId - ID hráča
+ * @param {object} robotObj - Referencia na robot objekt
+ * @param {function} callback - Funkcia volaná pri zmene
+ */
+export function watchPedometerSteps(playerId, robotObj, callback) {
+    const playerRef = doc(db, "players", playerId);
+    
+    return onSnapshot(playerRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const firebaseAccumulator = data.accumulator || 0;
+            
+            // Ak sa hodnota v Firebase zmenila, aktualizuj lokálny robot objekt
+            if (robotObj && firebaseAccumulator !== robotObj.accumulator) {
+                console.log(`[Pedometer] Nové kroky z Firebase: ${firebaseAccumulator}`);
+                robotObj.accumulator = Math.min(firebaseAccumulator, robotObj.maxAccumulator || 100);
+                
+                // Zavolaj callback pre aktualizáciu HUD
+                if (callback) callback(robotObj.accumulator);
+            }
+        }
+    }, (error) => {
+        console.error("[Firebase] Error watching pedometer:", error);
+    });
+}
+
+/**
+ * Presunie energiu z akumulátora do hlavnej batérie
+ * @param {string} playerId - ID hráča
+ * @param {object} robotObj - Referencia na robot objekt (voliteľné pre backward compatibility)
+ * @returns {boolean} true ak sa prenos podaril, false ak nie
+ */
+export async function transferEnergy(playerId, robotObj = null) {
+    console.log("[transferEnergy] Presúvam energiu z akumulátora do batérie");
+    
+    if (!robotObj) {
+        console.warn("[transferEnergy] Robot object not provided, cannot transfer energy");
+        return false;
     }
-});
+    
+    // Kontrola, či má robot akumulátor s energiou
+    if (!robotObj.accumulator || robotObj.accumulator <= 0) {
+        console.log("[transferEnergy] Akumulátor je prázdny!");
+        return false;
+    }
+    
+    // Kontrola, či nie je batéria už plná
+    const maxEnergy = robotObj.maxEnergy || 200;
+    if (robotObj.energy >= maxEnergy) {
+        console.log("[transferEnergy] Batéria je už plná!");
+        return false;
+    }
+    
+    // Vypočítame, koľko energie môžeme presunúť
+    const availableInAcc = robotObj.accumulator;
+    const spaceInBattery = maxEnergy - robotObj.energy;
+    const transferAmount = Math.min(availableInAcc, spaceInBattery);
+    
+    // Presun energie
+    robotObj.accumulator -= transferAmount;
+    robotObj.energy += transferAmount;
+    
+    console.log(`[transferEnergy] Prenesené: ${transferAmount} EP | Batéria: ${robotObj.energy}/${maxEnergy} | ACC: ${robotObj.accumulator}`);
+    
+    // Aktualizácia v databáze (lokálne)
+    await updatePlayerStatus(playerId, robotObj.position.x, robotObj.position.z, robotObj.energy);
+    
+    return true;
+}
+// Stub for setupChargerInDB (no-op, Firestore removed)
+export async function setupChargerInDB(roomId) {
+    console.log("[STUB] setupChargerInDB called (no Firestore logic)");
+    // Implement local logic if needed
+    return true;
+}
+// Stub for performRepairInDB (no-op, Firestore removed)
+export async function performRepairInDB(robotId, roomId, doorId, newAccumulator) {
+    console.log("[STUB] performRepairInDB called (no Firestore logic)");
+    // Implement local logic if needed
+    return true;
+}
+// Stub for performChargerRepairInDB (no-op, Firestore removed)
+export async function performChargerRepairInDB(robotId, roomId, chargerId, newAccumulator) {
+    console.log("[STUB] performChargerRepairInDB called (no Firestore logic)");
+    // Implement local logic if needed
+    return true;
+}
+// 1. JEDNOTNÉ IMPORTY
+
+// All Firestore/Firebase code removed. Only local file logic should remain.
+
+// Stub for fixObjectPositions (no-op)
+export function fixObjectPositions() {
+    console.log("[STUB] fixObjectPositions called (no Firestore logic)");
+}
 
 // ============================================================
 // SECTION: Room Management
 // Functions: watchRoom
 // ============================================================
-export function watchRoom(roomId, callback) {
-    const docRef = doc(db, "rooms", roomId);
-    return onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) {
-            callback(docSnap.data());
-        } else {
-            setDoc(docRef, { width: 5, depth: 5, name: "Nová miestnosť" });
-        }
-    });
-}
+// [REMOVED] watchRoom: Firestore logic deleted. Use local file loading in app.js instead.
+
 
 // ============================================================
 // SECTION: Item Management
 // Functions: watchItems, pickUpItem
 // ============================================================
-export function watchItems(roomId, callback) {
-    const itemsRef = collection(db, "items");
-    const q = query(itemsRef, where("location", "==", roomId), where("status", "==", "on_ground"));
-    return onSnapshot(q, (snapshot) => {
-        const items = [];
-        snapshot.forEach((doc) => { items.push({ id: doc.id, ...doc.data() }); });
-        callback(items);
-    });
-}
+// [REMOVED] watchItems: Firestore logic deleted. Use local file loading in app.js instead.
 
-export async function pickUpItem(playerId, itemId) {
-    const itemRef = doc(db, "items", itemId);
-    try {
-        await updateDoc(itemRef, { status: "in_inventory", owner: playerId, location: "none" });
-    } catch (e) { console.error("Chyba pri dvíhaní: ", e); }
-}
+
+// [REMOVED] pickUpItem: Firestore logic deleted. Use local file logic instead.
+
 
 // ============================================================
 // SECTION: Player Core Functions
@@ -77,348 +139,252 @@ export async function pickUpItem(playerId, itemId) {
  * @updates Triggers callback on any player field change
  * @called-from app.js, hud.js
  */
-export function watchPlayer(playerId, callback) {
-    const docRef = doc(db, "players", playerId);
-    return onSnapshot(docRef, (docSnap) => {
-        if (docSnap.exists()) callback(docSnap.data());
-    });
+// [REMOVED] watchPlayer: Firestore logic deleted. Use local file logic instead.
+
+// Stub for updatePlayerStatus (no-op, Firestore removed)
+export async function updatePlayerStatus(playerId, x, z, energy) {
+    // Implement local persistence if needed
+    return true;
 }
 
-export async function updatePlayerStatus(playerId, x, z, energy) {
-    const docRef = doc(db, "players", playerId);
+
+
+
+// ============================================================
+// SECTION: Save/Load/Reset System
+// Functions: saveGame, loadGame, resetGame
+// ============================================================
+
+/**
+ * Uloží celý herný stav do save slotu
+ */
+export async function saveGame(playerId, slotName = 'autosave') {
     try {
-        await updateDoc(docRef, {
-            positionX: x,
-            positionZ: z,
-            energy: energy,
-            lastUpdate: new Date()
-        });
-    } catch (e) {
-        // Ak hráč neexistuje, vytvoríme ho so správnym MAX 200
-        await setDoc(docRef, { 
-            positionX: x, 
-            positionZ: z,
-            energy: energy,
-            maxEnergy: 200, 
-            accumulator: 0,
-            lastUpdate: new Date()
-        }, { merge: true });
+        // Lokálna verzia: načítaj všetko z player_quests.json
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) throw new Error('Player data not found');
+        // Ulož snapshot do save slotu (napr. player_saves_autosave.json)
+        if (window.saveLocalJson) {
+            await window.saveLocalJson(`player_saves_${slotName}.json`, player);
+            console.log(`Game saved to slot: ${slotName}`);
+            return true;
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
+    } catch (error) {
+        console.error('Error saving game:', error);
+        return false;
     }
 }
-// ============================================================
-// SECTION: Kodex System
-// Functions: watchPlayerKodex, addKodexEntry
-// ============================================================
+
 /**
- * @purpose Real-time kodex entries listener
- * @updates Triggers callback when new entries unlocked
- * @called-from kodex.js
- */export function watchInventory(playerId, callback) {
-    const itemsRef = collection(db, "items");
-    const q = query(itemsRef, where("owner", "==", playerId), where("status", "==", "in_inventory"));
-    return onSnapshot(q, (snapshot) => {
-        const items = [];
-        snapshot.forEach((doc) => { items.push({ id: doc.id, ...doc.data() }); });
-        callback(items);
-    });
+ * Načíta uložený herný stav zo save slotu
+ */
+export async function loadGame(playerId, slotName = 'autosave') {
+    try {
+        // Lokálna verzia: načítaj snapshot z player_saves_autosave.json
+        const res = await fetch(`player_saves_${slotName}.json`);
+        if (!res.ok) throw new Error('Save file not found');
+        const saveData = await res.json();
+        // Obnov hráča do player_quests.json
+        const resAll = await fetch('player_quests.json');
+        const allPlayers = await resAll.json();
+        const idx = allPlayers.findIndex(q => q.playerId === playerId);
+        if (idx === -1) throw new Error('Player data not found');
+        allPlayers[idx] = saveData;
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', allPlayers);
+            console.log(`Game loaded from slot: ${slotName}`);
+            return true;
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
+    } catch (error) {
+        console.error('Error loading game:', error);
+        return false;
+    }
+}
+
+/**
+ * Resetuje hru na začiatok (nová hra)
+ */
+export async function resetGame(playerId) {
+    try {
+        // Lokálna verzia: načítaj všetko z player_quests.json
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) throw new Error('Player data not found');
+        // Resetuj základné hodnoty
+        player.positionX = 0;
+        player.positionZ = 0;
+        player.energy = 200;
+        player.maxEnergy = 200;
+        player.accumulator = 0;
+        player.maxAccumulator = 100;
+        player.level = 1;
+        player.xp = 0;
+        player.skillPoints = 0;
+        player.storyStep = 0;
+        player.seenDialogues = [];
+        player.hasSeenIntro = false;
+        player.lastUpdate = Date.now();
+        player.skills = {
+            strength: { base: 5, bonus: 0 },
+            perception: { base: 5, bonus: 0 },
+            endurance: { base: 5, bonus: 0 },
+            charisma: { base: 5, bonus: 0 },
+            intelligence: { base: 5, bonus: 0 },
+            agility: { base: 5, bonus: 0 },
+            luck: { base: 5, bonus: 0 }
+        };
+        player.inventory = {};
+        player.kodex = {};
+        player.quests = { active: [], completed: [] };
+        // Ulož späť
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+            console.log('Game reset to default state');
+            return true;
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
+    } catch (error) {
+        console.error('Error resetting game:', error);
+        return false;
+    }
 }
 
 // JEDINÁ A SPRÁVNA FUNKCIA PRE BATÉRIU
-export async function useBattery(playerId, itemId, energyAmount) {
-    const playerRef = doc(db, "players", playerId);
-    const itemRef = doc(db, "items", itemId);
-    try {
-        const playerSnap = await getDoc(playerRef);
-        if (playerSnap.exists()) {
-            const data = playerSnap.data();
-            const maxEng = data.maxEnergy || 200; 
-            const newEnergy = Math.min(maxEng, (data.energy || 0) + energyAmount);
-            await updateDoc(playerRef, { energy: newEnergy });
-            await deleteDoc(itemRef);
-        }
-    } catch (e) { console.error("Chyba batérie:", e); }
-}
+// [REMOVED] useBattery: Firestore logic deleted. Implement local logic if needed.
 
-// JEDINÁ A SPRÁVNA FUNKCIA PRE PRENOS
-export async function transferEnergy(playerId) {
-    const playerRef = doc(db, "players", playerId);
-    
-    try {
-        await runTransaction(db, async (transaction) => {
-            const playerDoc = await transaction.get(playerRef);
-            if (!playerDoc.exists()) return;
-            
-            const data = playerDoc.data();
-            const maxEng = data.maxEnergy || 200; 
-            const available = data.accumulator || 0;
-            const current = data.energy || 0;
+// [REMOVED] transferEnergy: Firestore logic deleted. Implement local logic if needed.
 
-            if (available > 0 && current < maxEng) {
-                const transferAmount = Math.min(available, maxEng - current);
-                const newEnergy = current + transferAmount;
-                const newAccumulator = available - transferAmount;
-                
-                transaction.update(playerRef, {
-                    energy: newEnergy,
-                    accumulator: newAccumulator
-                });
-            }
-        });
-    } catch (e) {
-        console.error("Chyba pri prenose energie:", e);
-    }
-}
 
 
 // --- FUNKCIA PRE DVERE (Firestore verzia) ---
-export async function updateRoomDoors(roomId, doorIndex, isBrokenStatus) {
-    const roomRef = doc(db, "rooms", roomId);
-    
-    try {
-        const roomSnap = await getDoc(roomRef);
-        if (roomSnap.exists()) {
-            const data = roomSnap.data();
-            const doors = data.doors || [];
-            
-            // 1. Zmeníme stav konkrétnych dverí v poli
-            if (doors[doorIndex]) {
-                doors[doorIndex].isBroken = isBrokenStatus;
-                
-                // 2. Zapíšeme celé aktualizované pole dverí späť do dokumentu miestnosti
-                await updateDoc(roomRef, { doors: doors });
-                console.log(`Dvere na indexe ${doorIndex} boli v DB aktualizované.`);
-            }
-        }
-    } catch (e) {
-        console.error("Chyba pri aktualizácii dverí v DB:", e);
-    }
-}
+// [REMOVED] updateRoomDoors: Firestore logic deleted. Implement local logic if needed.
 // Táto funkcia uloží do databázy, na ktorom čísle príbehu sa hráč nachádza
-export async function updateStoryStep(playerId, step) {
-    const docRef = doc(db, "players", playerId);
-    try {
-        await updateDoc(docRef, {
-            storyStep: step
-        });
-    } catch (e) {
-        console.error("Chyba pri ukladaní kroku príbehu:", e);
-    }
-}
+// [REMOVED] updateStoryStep: Firestore logic deleted. Implement local logic if needed.
 
 // Funkcia pridá konkrétny rozhovor do zoznamu "videných"
 export async function markDialogueAsSeen(playerId, dialogueId) {
-    const docRef = doc(db, "players", playerId);
+    // Lokálna verzia: zapíš do player_quests.json
     try {
-        await updateDoc(docRef, {
-            seenDialogues: arrayUnion(dialogueId)
-        });
-    } catch (e) {
-        console.error("Chyba pri označovaní dialógu:", e);
-    }
-}
-// --- FUNKCIA NA OPRAVU DVERÍ V DATABÁZE ---
-// --- FUNKCIA NA OPRAVU DVERÍ (FIRESTORE VERZIA) ---
-// --- FUNKCIA NA OPRAVU DVERÍ (FIRESTORE VERZIA) ---
-export async function performRepairInDB(robotId, roomId, doorId, newAccumulator) {
-    try {
-        const roomRef = doc(db, "rooms", roomId);
-        const roomSnap = await getDoc(roomRef);
-        if (!roomSnap.exists()) return;
-
-        const roomData = roomSnap.data();
-        const doors = roomData.doors || [];
-
-        const updatedDoors = doors.map(door => {
-            if (door.id === doorId) {
-                return { ...door, isBroken: false };
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (player) {
+            if (!player.seenDialogues) player.seenDialogues = [];
+            if (!player.seenDialogues.includes(dialogueId)) player.seenDialogues.push(dialogueId);
+            // Uložiť späť (vyžaduje saveLocalJson helper)
+            if (window.saveLocalJson) {
+                await window.saveLocalJson('player_quests.json', data);
+            } else {
+                console.warn('saveLocalJson helper nie je dostupný!');
             }
-            return door;
-        });
-
-        // 1. Aktualizácia dverí v miestnosti
-        await updateDoc(roomRef, { doors: updatedDoors });
-
-        // 2. Aktualizácia akumulátora a dialógov v kolekcii "players"
-        const robotRef = doc(db, "players", robotId); 
-        await updateDoc(robotRef, {
-            accumulator: newAccumulator,
-            seenDialogues: arrayUnion("DOOR_FIXED")
-        });
-
-        console.log("Firestore: Oprava úspešne dokončená! (použitý akumulátor)");
-        return true;
-    } catch (error) {
-        console.error("Firestore Error: Chyba pri oprave:", error);
-        return false;
-    }
-}
-// Táto funkcia pridá nabíjačku do tvojej miestnosti vo Firebase
-export async function setupChargerInDB(roomId) {
-    const roomRef = doc(db, "rooms", roomId);
-    
-    try {
-        await updateDoc(roomRef, {
-            // Vytvoríme pole chargers v dokumente room1
-            chargers: [
-                {
-                    id: "charger_1",
-                    x: -3,           // Pozícia vľavo
-                    z: -3,           // Pozícia "vzadu"
-                    isBroken: true,  // Začíname v stave "zničená"
-                    repairCost: 50   // Cena opravy z akumulátora
-                }
-            ]
-        });
-        console.log("Firebase: Nabíjačka charger_1 bola úspešne pridaná do " + roomId);
+        }
     } catch (e) {
-        console.error("Chyba pri pridávaní nabíjačky: ", e);
+        console.error('Chyba pri označovaní dialógu (lokálne):', e);
     }
 }
-// --- FUNKCIA NA OPRAVU NABÍJAČKY V DATABÁZE ---
-export async function performChargerRepairInDB(robotId, roomId, chargerId, newAccumulator) {
+
+// Funkcia nastaví hasSeenIntro na true (volá sa po prvom zobrazení intro dialógu)
+export async function markIntroAsSeen(playerId) {
     try {
-        const roomRef = doc(db, "rooms", roomId);
-        const roomSnap = await getDoc(roomRef);
-        if (!roomSnap.exists()) return false;
-
-        const roomData = roomSnap.data();
-        const chargers = roomData.chargers || [];
-
-        // 1. Aktualizujeme stav nabíjačky v poli
-        const updatedChargers = chargers.map(ch => {
-            if (ch.id === chargerId) {
-                return { ...ch, isBroken: false };
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (player) {
+            player.hasSeenIntro = true;
+            // Uložiť späť (vyžaduje saveLocalJson helper)
+            if (window.saveLocalJson) {
+                await window.saveLocalJson('player_quests.json', data);
+                console.log(`[Database] hasSeenIntro nastavené na true pre ${playerId}`);
+            } else {
+                console.warn('saveLocalJson helper nie je dostupný!');
             }
-            return ch;
-        });
-
-        // Zapíšeme opravené nabíjačky späť do miestnosti
-        await updateDoc(roomRef, { chargers: updatedChargers });
-
-        // 2. Aktualizujeme akumulátor hráča a pridáme značku, že je opravené
-        const robotRef = doc(db, "players", robotId); 
-        await updateDoc(robotRef, {
-            accumulator: newAccumulator,
-            seenDialogues: arrayUnion("CHARGER_FIXED")
-        });
-
-        console.log("Firestore: Nabíjacia stanica bola úspešne opravená!");
-        return true;
-    } catch (error) {
-        console.error("Firestore Error: Chyba pri oprave nabíjačky:", error);
-        return false;
+        }
+    } catch (e) {
+        console.error('Chyba pri nastavovaní hasSeenIntro (lokálne):', e);
     }
 }
+// --- FUNKCIE NA OPRAVU DVERÍ/NABÍJAČKY ---
+// Firestore-dependent functions removed. Implement local logic if needed.
 
 // --- FUNKCIE PRE SKILLS (SPECIAL) ---
 
-/**
- * getSkills — prečíta aktuálne skills hráča
- * @param {string} playerId — ID hráča
- * @returns {Promise<Object>} skills object alebo null
- */
+// getSkills — prečíta aktuálne skills hráča (lokálna verzia)
 export async function getSkills(playerId) {
     try {
-        const docRef = doc(db, "players", playerId);
-        const snap = await getDoc(docRef);
-        if (!snap.exists()) return null;
-        return snap.data().skills || {};
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) return null;
+        return player.skills || {};
     } catch (error) {
-        console.error("Firestore Error: Failed to get skills:", error);
+        console.error("Error: Failed to get skills:", error);
         return null;
     }
 }
 
-/**
- * allocateSkillPoint — transakčne pridelí bod do konkrétneho stattu
- * Skontroluje dostupnosť bodov a bezpečne zvýši base value (max 10)
- * @param {string} playerId — ID hráča
- * @param {string} statKey — stat key (S, P, E, C, I, A, L)
- * @returns {Promise<boolean>} true ak úspešne, false ak zlyhanie
- */
+// allocateSkillPoint — pridelí bod do konkrétneho stattu (lokálna verzia)
 export async function allocateSkillPoint(playerId, statKey) {
-    const validStats = ['S', 'P', 'E', 'C', 'I', 'A', 'L'];
+    const validStats = ['strength', 'perception', 'endurance', 'charisma', 'intelligence', 'agility', 'luck'];
     if (!validStats.includes(statKey)) {
         console.error("Invalid stat key:", statKey);
         return false;
     }
-
     try {
-        const result = await runTransaction(db, async (transaction) => {
-            const playerRef = doc(db, "players", playerId);
-            const snap = await transaction.get(playerRef);
-
-            if (!snap.exists()) {
-                throw new Error("Player does not exist");
-            }
-
-            const data = snap.data();
-            const skillPointsAvailable = data.skillPointsAvailable || 0;
-
-            if (skillPointsAvailable <= 0) {
-                throw new Error("No skill points available");
-            }
-
-            const skills = data.skills || {};
-            const current = skills[statKey] || { base: 3, bonus: 0 };
-
-            // Zvýš base value, max 10
-            current.base = Math.min(current.base + 1, 10);
-            skills[statKey] = current;
-
-            // Zapíš zmeny
-            transaction.update(playerRef, {
-                skills: skills,
-                skillPointsAvailable: skillPointsAvailable - 1
-            });
-
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) throw new Error("Player does not exist");
+        if (!player.skillPoints || player.skillPoints <= 0) {
+            throw new Error("No skill points available");
+        }
+        if (!player.skills) player.skills = {};
+        const current = player.skills[statKey] || { base: 3, bonus: 0 };
+        current.base = Math.min(current.base + 1, 10);
+        player.skills[statKey] = current;
+        player.skillPoints = player.skillPoints - 1;
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+            console.log(`Skill ${statKey} allocated successfully`);
             return true;
-        });
-
-        console.log(`Skill ${statKey} allocated successfully`);
-        return result;
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
     } catch (error) {
-        console.error("Firestore Error: Failed to allocate skill point:", error);
+        console.error("Error: Failed to allocate skill point:", error);
         return false;
     }
 }
 
-/**
- * updateSkill — aktualizuje konkrétny stat (base alebo bonus)
- * Používa sa len z trusted backend alebo admin operácií
- * @param {string} playerId — ID hráča
- * @param {string} statKey — stat key
- * @param {Object} updates — { base?: number, bonus?: number }
- * @returns {Promise<boolean>}
- */
+// updateSkill — aktualizuje konkrétny stat (base alebo bonus) (lokálna verzia)
 export async function updateSkill(playerId, statKey, updates) {
     try {
-        const playerRef = doc(db, "players", playerId);
-        const snap = await getDoc(playerRef);
-
-        if (!snap.exists()) {
-            console.error("Player does not exist");
-            return false;
-        }
-
-        const data = snap.data();
-        const skills = data.skills || {};
-        const current = skills[statKey] || { base: 3, bonus: 0 };
-
-        // Merge aktualizácie
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) throw new Error("Player does not exist");
+        if (!player.skills) player.skills = {};
+        const current = player.skills[statKey] || { base: 3, bonus: 0 };
         Object.assign(current, updates);
-
-        // Clamp hodnoty (0-10)
         current.base = Math.max(0, Math.min(10, current.base));
         current.bonus = Math.max(0, Math.min(10, current.bonus));
-
-        skills[statKey] = current;
-
-        await updateDoc(playerRef, { skills });
-        console.log(`Skill ${statKey} updated:`, current);
-        return true;
+        player.skills[statKey] = current;
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+            console.log(`Skill ${statKey} updated:`, current);
+            return true;
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
     } catch (error) {
-        console.error("Firestore Error: Failed to update skill:", error);
+        console.error("Error: Failed to update skill:", error);
         return false;
     }
 }
@@ -430,17 +396,24 @@ export async function updateSkill(playerId, statKey, updates) {
  * @returns {Function} unsubscribe funkcia
  */
 export function watchPlayerSkills(playerId, callback) {
-    const playerRef = doc(db, "players", playerId);
-    return onSnapshot(playerRef, (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            callback({
-                skills: data.skills || {},
-                skillPointsAvailable: data.skillPointsAvailable || 0,
-                perks: data.perks || []
-            });
-        }
-    });
+    // Lokálna verzia: načítaj skills z JSON súboru (napr. player_quests.json alebo player_skills.json)
+    fetch('player_quests.json')
+        .then(res => res.json())
+        .then(dataArr => {
+            // Predpoklad: skills sú v objekte s playerId
+            const player = dataArr.find(q => q.playerId === playerId);
+            if (player && player.skills) {
+                callback({
+                    skills: player.skills || {},
+                    skillPointsAvailable: player.skillPointsAvailable || 0,
+                    perks: player.perks || []
+                });
+            } else {
+                callback({ skills: {}, skillPointsAvailable: 0, perks: [] });
+            }
+        });
+    // V lokálnej verzii nie je realtime, takže nevraciame unsubscribe
+    return () => {};
 }
 
 // --- INVENTORY SYSTEM ---
@@ -452,13 +425,20 @@ export function watchPlayerSkills(playerId, callback) {
  * @returns {Function} unsubscribe funkcia
  */
 export function watchPlayerInventory(playerId, callback) {
-    const playerRef = doc(db, "players", playerId);
-    return onSnapshot(playerRef, (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            callback(data.inventory || {});
-        }
-    });
+    // Lokálna verzia: načítaj inventár z JSON súboru (napr. player_quests.json alebo player_inventory.json)
+    fetch('player_quests.json')
+        .then(res => res.json())
+        .then(dataArr => {
+            // Predpoklad: inventory je v objekte s playerId
+            const player = dataArr.find(q => q.playerId === playerId);
+            if (player && player.inventory) {
+                callback(player.inventory);
+            } else {
+                callback({});
+            }
+        });
+    // V lokálnej verzii nie je realtime, takže nevraciame unsubscribe
+    return () => {};
 }
 
 /**
@@ -596,13 +576,20 @@ export async function useInventoryItem(playerId, itemType) {
  * @returns {Function} unsubscribe funkcia
  */
 export function watchPlayerKodex(playerId, callback) {
-    const playerRef = doc(db, "players", playerId);
-    return onSnapshot(playerRef, (snap) => {
-        if (snap.exists()) {
-            const data = snap.data();
-            callback(data.kodex || {});
-        }
-    });
+    // Lokálna verzia: načítaj kodex z JSON súboru (napr. player_quests.json alebo player_kodex.json)
+    fetch('player_quests.json')
+        .then(res => res.json())
+        .then(dataArr => {
+            // Predpoklad: kodex je v objekte s playerId
+            const player = dataArr.find(q => q.playerId === playerId);
+            if (player && player.kodex) {
+                callback(player.kodex);
+            } else {
+                callback({});
+            }
+        });
+    // V lokálnej verzii nie je realtime, takže nevraciame unsubscribe
+    return () => {};
 }
 
 /**
@@ -612,35 +599,27 @@ export function watchPlayerKodex(playerId, callback) {
  * @param {Object} entryData — dáta entry-u (unlocked, unlockedAt, title, atď.)
  */
 export async function addKodexEntry(playerId, entryId, entryData) {
-    const playerRef = doc(db, "players", playerId);
-    
+    // Lokálna verzia: zapíš do player_quests.json
     try {
-        await runTransaction(db, async (transaction) => {
-            const playerDoc = await transaction.get(playerRef);
-            if (!playerDoc.exists()) {
-                console.error("Hráč neexistuje");
-                return;
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (player) {
+            if (!player.kodex) player.kodex = {};
+            if (player.kodex[entryId]?.unlocked) return;
+            player.kodex[entryId] = {
+                ...entryData,
+                unlocked: true,
+                unlockedAt: Date.now()
+            };
+            if (window.saveLocalJson) {
+                await window.saveLocalJson('player_quests.json', data);
+            } else {
+                console.warn('saveLocalJson helper nie je dostupný!');
             }
-
-            const kodex = playerDoc.data().kodex || {};
-            
-            // Ak je already odomknuté, neskáčeme
-            if (kodex[entryId]?.unlocked) {
-                return;
-            }
-
-            // Pridáme/updatujeme entry
-            transaction.update(playerRef, {
-                [`kodex.${entryId}`]: {
-                    ...entryData,
-                    unlockedAt: new Date()
-                }
-            });
-        });
-
-        console.log(`Kodex entry odomknutý: ${entryId}`);
+        }
     } catch (e) {
-        console.error("Chyba pri odomknutí kodexu:", e);
+        console.error('Chyba pri pridávaní kodex entry (lokálne):', e);
     }
 }
 
@@ -653,15 +632,19 @@ export async function addKodexEntry(playerId, entryId, entryData) {
  * @returns {Function} unsubscribe funkcia
  */
 export function watchPlayerQuests(playerId, callback) {
-    const questsRef = collection(db, "player_quests");
-    const q = query(questsRef, where("playerId", "==", playerId));
-    return onSnapshot(q, (snapshot) => {
-        const quests = [];
-        snapshot.forEach((doc) => {
-            quests.push({ id: doc.id, ...doc.data() });
-        });
-        callback(quests);
-    });
+    // LOCAL: Read player_quests.json and get player's active quests
+    fetch('player_quests.json')
+        .then(res => res.json())
+        .then(players => {
+            const player = players.find(p => p.playerId === playerId);
+            if (player && player.quests && player.quests.active) {
+                callback(player.quests.active);
+            } else {
+                callback([]);
+            }
+        })
+        .catch(() => callback([]));
+    return () => {}; // No real-time in local version
 }
 
 /**
@@ -672,16 +655,21 @@ export function watchPlayerQuests(playerId, callback) {
  * @returns {Promise<boolean>}
  */
 export async function startQuest(playerId, questId, questData) {
-    const playerQuestRef = doc(db, "player_quests", `${playerId}_${questId}`);
-    
+    // LOCAL: Add new quest to player.quests.active in player_quests.json
     try {
-        const playerQuestSnap = await getDoc(playerQuestRef);
-        if (playerQuestSnap.exists()) {
+        const res = await fetch('player_quests.json');
+        const players = await res.json();
+        const player = players.find(p => p.playerId === playerId);
+        
+        if (!player) throw new Error("Player not found");
+        if (!player.quests) player.quests = { active: [], completed: [] };
+        
+        // Check if quest already active
+        if (player.quests.active.some(q => q.questId === questId)) {
             console.log("Quest už je zahájený");
             return false;
         }
-
-        // Inicializuj objectives progress
+        
         const objectivesProgress = {};
         if (questData.objectives && Array.isArray(questData.objectives)) {
             questData.objectives.forEach((obj, idx) => {
@@ -692,19 +680,25 @@ export async function startQuest(playerId, questId, questData) {
                 };
             });
         }
-
-        await setDoc(playerQuestRef, {
-            playerId: playerId,
-            questId: questId,
+        
+        player.quests.active.push({
+            questId,
             questTitle: questData.title || "Unnamed Quest",
-            questType: questData.type || "side", // main alebo side
-            status: "active", // active, completed, abandoned
-            startedAt: new Date(),
-            objectivesProgress: objectivesProgress,
+            questType: questData.type || "side",
+            status: "active",
+            startedAt: new Date().toISOString(),
+            objectivesProgress,
             completedAt: null
         });
-
+        
+        await window.saveLocalJson('player_quests.json', players);
         console.log(`✓ Quest started: ${questId}`);
+        
+        // Trigger quest UI update event s aktuálnymi dátami z pamäte
+        window.dispatchEvent(new CustomEvent('questsUpdated', { 
+            detail: { activeQuests: player.quests.active } 
+        }));
+        
         return true;
     } catch (e) {
         console.error("Chyba pri zahájení questu:", e);
@@ -721,34 +715,24 @@ export async function startQuest(playerId, questId, questData) {
  * @returns {Promise<boolean>}
  */
 export async function updateQuestProgress(playerId, questId, objectiveIndex, progressAmount = 1) {
-    const playerQuestRef = doc(db, "player_quests", `${playerId}_${questId}`);
-    
+    // LOCAL: Update quest progress in player.quests.active
     try {
-        await runTransaction(db, async (transaction) => {
-            const questSnap = await transaction.get(playerQuestRef);
-            if (!questSnap.exists()) {
-                throw new Error("Quest neexistuje");
-            }
-
-            const data = questSnap.data();
-            const progress = data.objectivesProgress || {};
-            
-            if (!progress[objectiveIndex]) {
-                throw new Error("Objektív neexistuje");
-            }
-
-            progress[objectiveIndex].progress += progressAmount;
-            
-            // Check ak je objektív splnený
-            if (progress[objectiveIndex].progress >= progress[objectiveIndex].target) {
-                progress[objectiveIndex].completed = true;
-            }
-
-            transaction.update(playerQuestRef, {
-                objectivesProgress: progress
-            });
-        });
-
+        const res = await fetch('player_quests.json');
+        const players = await res.json();
+        const player = players.find(p => p.playerId === playerId);
+        
+        if (!player || !player.quests || !player.quests.active) throw new Error("Player or quests not found");
+        
+        const quest = player.quests.active.find(q => q.questId === questId);
+        if (!quest) throw new Error("Quest neexistuje");
+        if (!quest.objectivesProgress[objectiveIndex]) throw new Error("Objektív neexistuje");
+        
+        quest.objectivesProgress[objectiveIndex].progress += progressAmount;
+        if (quest.objectivesProgress[objectiveIndex].progress >= quest.objectivesProgress[objectiveIndex].target) {
+            quest.objectivesProgress[objectiveIndex].completed = true;
+        }
+        
+        await window.saveLocalJson('player_quests.json', players);
         console.log(`✓ Quest ${questId} progress updated: obj ${objectiveIndex}`);
         return true;
     } catch (e) {
@@ -765,66 +749,35 @@ export async function updateQuestProgress(playerId, questId, objectiveIndex, pro
  * @returns {Promise<boolean>}
  */
 export async function completeQuest(playerId, questId, questData) {
-    const playerRef = doc(db, "players", playerId);
-    const playerQuestRef = doc(db, "player_quests", `${playerId}_${questId}`);
-    
+    // LOCAL: Move quest from active to completed and give rewards
     try {
-        await runTransaction(db, async (transaction) => {
-            const playerSnap = await transaction.get(playerRef);
-            const questSnap = await transaction.get(playerQuestRef);
-
-            if (!playerSnap.exists() || !questSnap.exists()) {
-                throw new Error("Hráč alebo quest neexistuje");
+        const res = await fetch('player_quests.json');
+        const players = await res.json();
+        const player = players.find(p => p.playerId === playerId);
+        
+        if (!player || !player.quests) throw new Error("Player not found");
+        
+        const questIndex = player.quests.active.findIndex(q => q.questId === questId);
+        if (questIndex === -1) throw new Error("Quest neexistuje");
+        
+        // Remove from active and add to completed
+        const completedQuest = player.quests.active.splice(questIndex, 1)[0];
+        completedQuest.status = "completed";
+        completedQuest.completedAt = new Date().toISOString();
+        player.quests.completed.push(completedQuest);
+        
+        // Give rewards
+        if (questData.rewards) {
+            if (questData.rewards.xp) {
+                player.xp = (player.xp || 0) + questData.rewards.xp;
             }
-
-            // 1. Vyplatiť XP (ak sú rewards)
-            if (questData.rewards?.xp) {
-                const currentXP = playerSnap.data().currentXP || 0;
-                const currentLevel = playerSnap.data().level || 1;
-                let newXP = currentXP + questData.rewards.xp;
-                let newLevel = currentLevel;
-                let skillPointsGained = 0;
-
-                // Check pre level up
-                while (newXP >= calculateXPForLevel(newLevel)) {
-                    newXP -= calculateXPForLevel(newLevel);
-                    newLevel++;
-                    skillPointsGained += 2;
-                }
-
-                transaction.update(playerRef, {
-                    currentXP: newXP,
-                    level: newLevel,
-                    xpToNextLevel: calculateXPForLevel(newLevel),
-                    skillPointsAvailable: (playerSnap.data().skillPointsAvailable || 0) + skillPointsGained
-                });
-
-                console.log(`✓ Quest rewards: +${questData.rewards.xp} XP`);
+            if (questData.rewards.skillPoints) {
+                player.skillPoints = (player.skillPoints || 0) + questData.rewards.skillPoints;
             }
-
-            // 2. Vyplatiť items (ak sú)
-            if (questData.rewards?.items && Array.isArray(questData.rewards.items)) {
-                const inventory = playerSnap.data().inventory || {};
-                questData.rewards.items.forEach(item => {
-                    const itemType = item.type || item;
-                    const count = item.count || 1;
-                    inventory[itemType] = {
-                        count: (inventory[itemType]?.count || 0) + count,
-                        maxCount: inventory[itemType]?.maxCount || 99,
-                        addedAt: new Date()
-                    };
-                });
-                transaction.update(playerRef, { inventory });
-                console.log(`✓ Quest items awarded`);
-            }
-
-            // 3. Update quest status
-            transaction.update(playerQuestRef, {
-                status: "completed",
-                completedAt: new Date()
-            });
-        });
-
+            // TODO: Add items to inventory if needed
+        }
+        
+        await window.saveLocalJson('player_quests.json', players);
         console.log(`✓ Quest ${questId} completed with full rewards!`);
         return true;
     } catch (e) {
@@ -833,87 +786,75 @@ export async function completeQuest(playerId, questId, questData) {
     }
 }
 
-    // --- LEVEL SYSTEM ---
+// --- LEVEL SYSTEM ---
 
-    /**
-     * calculateXPForLevel — vypočíta potrebné XP pre konkrétny level
-     * @param {number} level — cieľový level
-     * @returns {number} potrebné XP
-     */
-    export function calculateXPForLevel(level) {
-        // Exponenciálny rast: level² × 100
-        // Level 1→2: 100 XP
-        // Level 2→3: 400 XP
-        // Level 3→4: 900 XP
-        // Level 4→5: 1600 XP
-        return Math.floor(Math.pow(level, 2) * 100);
-    }
+/**
+ * calculateXPForLevel — vypočíta potrebné XP pre konkrétny level
+ * @param {number} level — cieľový level
+ * @returns {number} potrebné XP
+ */
+export function calculateXPForLevel(level) {
+    // Exponenciálny rast: level² × 100
+    // Level 1→2: 100 XP
+    // Level 2→3: 400 XP
+    // Level 3→4: 900 XP
+    // Level 4→5: 1600 XP
+    return Math.floor(Math.pow(level, 2) * 100);
+}
 
-    /**
-     * giveXP — pridá XP hráčovi a automaticky spraví level up ak treba
-     * @param {string} playerId — ID hráča
-     * @param {number} amount — množstvo XP
-     * @param {string} source — zdroj XP (pre log)
-     * @returns {Promise<{leveled: boolean, newLevel?: number}>}
-     */
-    export async function giveXP(playerId, amount, source = "unknown") {
-        const playerRef = doc(db, "players", playerId);
-    
-        try {
-            const result = await runTransaction(db, async (transaction) => {
-                const playerDoc = await transaction.get(playerRef);
-                if (!playerDoc.exists()) {
-                    throw new Error("Hráč neexistuje");
-                }
-
-                const data = playerDoc.data();
-                const currentLevel = data.level || 1;
-                const currentXP = data.currentXP || 0;
-                const skillPointsAvailable = data.skillPointsAvailable || 0;
-
-                let newXP = currentXP + amount;
-                let newLevel = currentLevel;
-                let leveledUp = false;
-                let skillPointsGained = 0;
-
-                // Check pre level up (môže byť viacero levelov naraz)
-                while (newXP >= calculateXPForLevel(newLevel)) {
-                    newXP -= calculateXPForLevel(newLevel);
-                    newLevel++;
-                    leveledUp = true;
-                    // Za každý level: 2 skill body (môžeš upraviť)
-                    skillPointsGained += 2;
-                }
-
-                const xpToNext = calculateXPForLevel(newLevel);
-
-                // Update player data
-                transaction.update(playerRef, {
-                    currentXP: newXP,
-                    level: newLevel,
-                    xpToNextLevel: xpToNext,
-                    skillPointsAvailable: skillPointsAvailable + skillPointsGained
-                });
-
-                console.log(`✓ XP Gained: +${amount} from ${source} | Level: ${newLevel} | XP: ${newXP}/${xpToNext}`);
-            
-                if (leveledUp) {
-                    console.log(`🎉 LEVEL UP! ${currentLevel} → ${newLevel} (+${skillPointsGained} skill points)`);
-                }
-
-                return {
-                    leveled: leveledUp,
-                    newLevel: leveledUp ? newLevel : undefined,
-                    skillPointsGained: skillPointsGained
-                };
-            });
-
-            return result;
-        } catch (e) {
-            console.error("Chyba pri pridávaní XP:", e);
-            return { leveled: false };
+/**
+ * giveXP — pridá XP hráčovi a automaticky spraví level up ak treba (lokálna verzia)
+ * @param {string} playerId — ID hráča
+ * @param {number} amount — množstvo XP
+ * @param {string} source — zdroj XP (pre log)
+ * @returns {Promise<{leveled: boolean, newLevel?: number}>}
+ */
+export async function giveXP(playerId, amount, source = "unknown") {
+    try {
+        const res = await fetch('player_quests.json');
+        const data = await res.json();
+        const player = data.find(q => q.playerId === playerId);
+        if (!player) throw new Error("Hráč neexistuje");
+        const currentLevel = player.level || 1;
+        const currentXP = player.currentXP || 0;
+        const skillPoints = player.skillPoints || 0;
+        let newXP = currentXP + amount;
+        let newLevel = currentLevel;
+        let leveledUp = false;
+        let skillPointsGained = 0;
+        // Check pre level up (môže byť viacero levelov naraz)
+        while (newXP >= calculateXPForLevel(newLevel)) {
+            newXP -= calculateXPForLevel(newLevel);
+            newLevel++;
+            leveledUp = true;
+            // Za každý level: 2 skill body (môžeš upraviť)
+            skillPointsGained += 2;
         }
+        const xpToNext = calculateXPForLevel(newLevel);
+        // Update player data
+        player.currentXP = newXP;
+        player.level = newLevel;
+        player.xpToNextLevel = xpToNext;
+        player.skillPoints = skillPoints + skillPointsGained;
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+            console.log(`✓ XP Gained: +${amount} from ${source} | Level: ${newLevel} | XP: ${newXP}/${xpToNext}`);
+            if (leveledUp) {
+                console.log(`🎉 LEVEL UP! ${currentLevel} → ${newLevel} (+${skillPointsGained} skill points)`);
+            }
+            return {
+                leveled: leveledUp,
+                newLevel: leveledUp ? newLevel : undefined,
+                skillPointsGained: skillPointsGained
+            };
+        } else {
+            throw new Error('saveLocalJson helper nie je dostupný!');
+        }
+    } catch (e) {
+        console.error("Chyba pri pridávaní XP:", e);
+        return { leveled: false };
     }
+}
 
     /**
      * watchPlayerLevel — sleduje level/XP hráča (realtime)
@@ -921,19 +862,8 @@ export async function completeQuest(playerId, questId, questData) {
      * @param {Function} callback — zavolaná pri zmene (level, currentXP, xpToNextLevel)
      * @returns {Function} unsubscribe funkcia
      */
-    export function watchPlayerLevel(playerId, callback) {
-        const playerRef = doc(db, "players", playerId);
-        return onSnapshot(playerRef, (snap) => {
-            if (snap.exists()) {
-                const data = snap.data();
-                callback({
-                    level: data.level || 1,
-                    currentXP: data.currentXP || 0,
-                    xpToNextLevel: data.xpToNextLevel || calculateXPForLevel(1)
-                });
-            }
-        });
-    }
+    // [REMOVED] watchPlayerLevel: Firestore logic deleted. Use local file logic instead.
+
 
 /**
  * getQuestData — fetchne quest data z quests kolekcie
@@ -941,15 +871,25 @@ export async function completeQuest(playerId, questId, questData) {
  * @returns {Promise<Object|null>} quest dokument alebo null ak neexistuje
  */
 export async function getQuestData(questId) {
+    // LOCAL: Read quest data from quests.json
     try {
-        const questRef = doc(db, "quests", questId);
-        const questSnap = await getDoc(questRef);
-        if (questSnap.exists()) {
-            return { id: questSnap.id, ...questSnap.data() };
-        }
-        return null;
+        const res = await fetch('quests.json');
+        const allQuests = await res.json();
+        const quest = allQuests.find(q => q.id === questId);
+        return quest || null;
     } catch (e) {
         console.error("Chyba pri fetchnutí quest dát:", e);
         return null;
     }
 }
+
+/**
+ * createMainQuest — vytvorí quest "Kde to som" ak neexistuje
+ */
+// [REMOVED] createMainQuest: Firestore logic deleted. Use local file logic instead.
+
+
+/**
+ * resetPlayerQuest — vymaže player quest (pre reset/debug)
+ */
+// [REMOVED] resetPlayerQuest: Firestore logic deleted. Use local file logic instead.

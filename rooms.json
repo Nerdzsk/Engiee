@@ -1,0 +1,28 @@
+[
+  {
+    "id": "room1",
+    "name": "Miestnosť 1",
+    "width": 10,
+    "depth": 10,
+    "doors": [
+      {
+        "id": "door_1",
+        "x": 0,
+        "z": -5.5,
+        "direction": "north",
+        "isBroken": true,
+        "repairCost": 30
+      }
+    ],
+    "chargers": [
+      {
+        "id": "charger_1",
+        "x": -4.8,
+        "z": 3,
+        "rotation": 1.57,
+        "isBroken": true,
+        "repairCost": 50
+      }
+    ]
+  }
+]

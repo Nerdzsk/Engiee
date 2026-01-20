@@ -1,5 +1,6 @@
-import { updatePlayerStatus, pickUpItem, watchInventory, useBattery, updateRoomDoors } from './database.js';
+// import { useBattery } from './database.js'; // useBattery už nie je exportovaná, implementuj lokálnu logiku ak treba
 import { wallMap,doorObjects,chargerObjects } from './world.js'; 
+import { updatePlayerStatus } from './database.js';
 import { currentItemsData } from './items.js';
 
 // Premenné pre správu stavov
@@ -15,12 +16,12 @@ export function setupControls(robot) {
     
     if (robot.energy === undefined) robot.energy = 100;
     if (window.worldRotation === undefined) window.worldRotation = 0;
+        if (!robot.position) {
+            robot.position = { x: 0, y: 0, z: 0 };
+        }
 
     // --- 1. SLEDOVANIE INVENTÁRA (Real-time) ---
-    watchInventory("robot1", (data) => {
-        inventory = data;
-        renderInventoryUI();
-    });
+    // [REMOVED] watchInventory: Firestore logic deleted. Use local file logic instead.
 
     // --- 2. INTERAKCIA S KONTEXTOVÝM MENU (Zem) ---
     window.interact = (action) => {
@@ -33,7 +34,7 @@ export function setupControls(robot) {
             overlay.style.display = 'block';
         } 
         else if (action === 'take') {
-            pickUpItem("robot1", activeItem.id);
+            // [REMOVED] pickUpItem: Firestore logic deleted. Use local file logic instead.
             closeMenu();
         }
         else if (action === 'close') {
@@ -100,7 +101,7 @@ export function setupControls(robot) {
         return currentItemsData.some(item => Math.round(item.coords.x) === x && Math.round(item.coords.z) === z);
     }
 
-   // --- 4. KLÁVESNICA (OPRAVENÝ BLOK) ---
+   // --- 4. KLÁVESNICA (WASD + ŠÍPKY PODPORA) ---
     window.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
 
@@ -121,51 +122,57 @@ export function setupControls(robot) {
 
         let moved = false;
 
-        // Otáčanie kamery
-        if (e.key === "ArrowLeft") window.worldRotation += Math.PI / 2;
-        if (e.key === "ArrowRight") window.worldRotation -= Math.PI / 2;
+        // ROTÁCIA SVETA (miestnosť sa otáča, robot zostáva viditeľný zozadu)
+        // Šípky doľava/doprava ALEBO klávesy A/D
+        if (e.key === "ArrowLeft" || key === 'a') {
+            window.worldRotation += Math.PI / 2; // Otočenie o 90° doľava
+        }
+        if (e.key === "ArrowRight" || key === 'd') {
+            window.worldRotation -= Math.PI / 2; // Otočenie o 90° doprava
+        }
 
-        // Pohyb robota
-        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        // POHYB ROBOTA (dopredu/dozadu v smere, kam "pozerá" kamera)
+        // Šípky hore/dole ALEBO klávesy W/S
+        if (e.key === "ArrowUp" || key === 'w' || e.key === "ArrowDown" || key === 's') {
             if (robot.energy <= 0) return;
 
-            const moveZ = (e.key === "ArrowUp") ? -1 : 1;
+            // Určíme smer pohybu (-1 = dopredu, +1 = dozadu)
+            const moveZ = (e.key === "ArrowUp" || key === 'w') ? -1 : 1;
+            
+            // Vypočítame novú pozíciu podľa rotácie sveta
             const nextX = Math.round(robot.targetPosition.x + Math.sin(window.worldRotation) * moveZ);
             const nextZ = Math.round(robot.targetPosition.z + Math.cos(window.worldRotation) * moveZ);
 
-            // Kontrola kolízií so stenami
-            if (wallMap.has(`${nextX},${nextZ}`)) return;
             // 1. Kontrola kolízií so stenami
             if (wallMap.has(`${nextX},${nextZ}`)) return;
 
-            // 2. PRIDANÉ: Kontrola kolízií s nabíjačkami
-            // 2. Kontrola kolízií s nabíjačkami (Obdĺžniková kolízia)
+            // 2. Kontrola kolízií s nabíjačkami (kruhová kolízia - funguje pri akejkoľvek rotácii)
             let isBlockedByCharger = false;
             chargerObjects.forEach(charger => {
-                // Vypočítame absolútnu vzdialenosť (vždy kladné číslo)
-                const diffX = Math.abs(nextX - charger.position.x);
-                const diffZ = Math.abs(nextZ - charger.position.z);
+                const dx = nextX - charger.position.x;
+                const dz = nextZ - charger.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
 
-                // Definujeme hranice "krabice" okolo nabíjačky:
-                // Šírka (X): 0.8 metra na každú stranu (celkovo 1.6m)
-                // Hĺbka (Z): 0.3 metra na každú stranu (celkovo 0.6m)
-                if (diffX < 1 && diffZ < 0.6) {
+                // Kruhová kolízna zóna (polomer 0.6 metra)
+                if (distance < 0.6) {
                     isBlockedByCharger = true;
                 }
             });
 
             if (isBlockedByCharger) return;
 
-            // Zablokuj vstup na políčko, kde leží item na zemi
+            // 3. Zablokuj vstup na políčko, kde leží item na zemi
             if (isItemBlockingTile(nextX, nextZ)) return;
 
+            // Ak prešiel všetkými kontrolami, posunieme robota
             robot.targetPosition.x = nextX;
             robot.targetPosition.z = nextZ;
-            robot.energy -= 2;
+            robot.energy -= 2; // Spotrebuje 2 energie za jeden krok
             if (robot.energy < 0) robot.energy = 0;
             moved = true;
         }
 
+        // Ak sa robot pohol, aktualizujeme stav v databáze
         if (moved) {
             updatePlayerStatus("robot1", robot.targetPosition.x, robot.targetPosition.z, robot.energy);
             checkForItemUnderRobot(robot.targetPosition.x, robot.targetPosition.z);
@@ -177,7 +184,11 @@ function handleDoorInteraction(robot) {
     if (!doorObjects) return;
 
     doorObjects.forEach(door => {
-        const distance = robot.position.distanceTo(door.position);
+        // Manual distance calculation (robot.position is plain object)
+        const dx = (robot.position.x || 0) - (door.position.x || 0);
+        const dy = (robot.position.y || 0) - (door.position.y || 0);
+        const dz = (robot.position.z || 0) - (door.position.z || 0);
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
         if (distance < 1.2) {
             // VOLÁME openDoor VŽDY. 
@@ -198,9 +209,19 @@ export function updateMovement(robot) {
         robot.position.x += (robot.targetPosition.x - robot.position.x) * 0.1;
         robot.position.z += (robot.targetPosition.z - robot.position.z) * 0.1;
     }
-    
-    // Namiesto okamžitého skoku pridáme plynulý prechod (0.05 určuje rýchlosť otáčania)
-        robot.rotation.y += (window.worldRotation - robot.rotation.y) * 0.05;
+    if (!robot || !robot.position || typeof robot.position.y === 'undefined') {
+        return;
+    }
+    if (!robot.rotation) {
+        robot.rotation = { y: 0 };
+    }
+    if (typeof robot.rotation.y === 'undefined') {
+        robot.rotation.y = 0;
+    }
+    // Robot sa otáča spolu s miestnosťou
+    // Pridáme Math.PI aby robot "pozeral" správnym smerom
+    const targetRotation = window.worldRotation + Math.PI;
+    robot.rotation.y += (targetRotation - robot.rotation.y) * 0.05;
 
 // --- 5. AKTUALIZÁCIA HUD (Energy Bar) v controls.js ---
     const energyFill = document.getElementById('energy-fill');
@@ -227,27 +248,31 @@ export function updateMovement(robot) {
     }
 
     // Vizuálny stav robota (vybitý = čierny)
-    if (robot.energy <= 0) {
-        robot.traverse((child) => {
-            if (child.isMesh) {
-                if (!child.userData.originalColor) child.userData.originalColor = child.material.color.getHex();
-                child.material.color.set(0x111111);
+        if (robot.energy <= 0) {
+            if (typeof robot.traverse === 'function') {
+                robot.traverse((child) => {
+                    if (child.isMesh) {
+                        if (!child.userData.originalColor) child.userData.originalColor = child.material.color.getHex();
+                        child.material.color.set(0x111111);
+                    }
+                });
             }
-        });
-    } else {
-        // Obnov farbu len ak bola predtým zmenená na čiernu
-        robot.traverse((child) => {
-            if (child.isMesh && child.userData.originalColor) {
-                const currentColor = child.material.color.getHex();
-                // Obnov farbu len ak je robot čierny (0x111111) alebo tmavý
-                if (currentColor === 0x111111 || currentColor < 0x222222) {
-                    child.material.color.setHex(child.userData.originalColor);
-                }
+        } else {
+            // Obnov farbu len ak bola predtým zmenená na čiernu
+            if (typeof robot.traverse === 'function') {
+                robot.traverse((child) => {
+                    if (child.isMesh && child.userData.originalColor) {
+                        const currentColor = child.material.color.getHex();
+                        // Obnov farbu len ak je robot čierny (0x111111) alebo tmavý
+                        if (currentColor === 0x111111 || currentColor < 0x222222) {
+                            child.material.color.setHex(child.userData.originalColor);
+                        }
+                    }
+                });
             }
-        });
-    }
+        }
 }
-// 1. Nezabudni pridať updateRoomDoors do importov hore!
+// updateRoomDoors bola odstránená z database.js (lokálna logika sa rieši inak)
 
 export function repairDoor(robot) {
     if (!doorObjects) return;
@@ -265,7 +290,7 @@ export function repairDoor(robot) {
 
                 // ZÁPIS DO FIREBASE
                 // "room1" je ID tvojej miestnosti, index je poradie dverí v poli
-                updateRoomDoors("room1", index, false); 
+                // updateRoomDoors("room1", index, false); // Funkcia bola odstránená, implementuj lokálnu logiku ak treba
 
                 updatePlayerStatus("robot1", robot.targetPosition.x, robot.targetPosition.z, robot.energy);
                 console.log("Dvere opravené a stav zapísaný do databázy.");

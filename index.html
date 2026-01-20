@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta charset="UTF-8">
     <title>Engee 3D - Modular System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,8 +15,16 @@
     <link rel="stylesheet" href="css/04-modals.css">
     <link rel="stylesheet" href="css/05-responsive.css">
     <link rel="stylesheet" href="css/06-angie.css">
+    <link rel="stylesheet" href="css/07-game-menu.css">
 </head>
 <body>
+
+<!-- INTRO VIDEO OVERLAY - DOČASNE SKRYTÉ -->
+<div id="intro-video-overlay" class="intro-video-overlay hidden">
+    <video id="intro-video" class="intro-video">
+        <source src="./assets/Video/wakeup.mp4" type="video/mp4">
+    </video>
+</div>
 
 <div id="hud" class="hud-wrap">
     <!-- HUD FRAME (Tier 1: Rusted) -->
@@ -161,6 +171,22 @@
     </div>
 </div>
 
+<!-- Game Menu Modal (ESC) -->
+<div id="game-menu-modal" class="game-menu-modal hidden">
+    <div class="game-menu-content">
+        <h1 class="game-menu-title">⚙️ GAME MENU</h1>
+        <div class="game-menu-buttons">
+            <button id="menu-resume" class="game-menu-btn">▶ RESUME GAME</button>
+            <button id="menu-new-game" class="game-menu-btn">🆕 NEW GAME</button>
+            <button id="menu-save-game" class="game-menu-btn">💾 SAVE GAME</button>
+            <button id="menu-load-game" class="game-menu-btn">📁 LOAD GAME</button>
+            <button id="menu-settings" class="game-menu-btn">⚙️ SETTINGS</button>
+            <button id="menu-quit-game" class="game-menu-btn game-menu-btn-danger">❌ QUIT GAME</button>
+        </div>
+        <div class="game-menu-footer">Press ESC to close</div>
+    </div>
+</div>
+
 <!-- Level Up Modal -->
 <div id="levelup-modal" class="levelup-modal hidden">
     <div class="levelup-modal-content">
@@ -171,6 +197,15 @@
             <div>🎯 +2 SKILL POINTS</div>
         </div>
         <button id="levelup-close" class="levelup-close-btn">CONTINUE</button>
+    </div>
+</div>
+
+<!-- QUEST NOTIFICATION (toast notification for quest events) -->
+<div id="quest-notification" class="quest-notification hidden">
+    <div class="quest-notification-icon">📜</div>
+    <div class="quest-notification-content">
+        <div class="quest-notification-title">Nový Quest!</div>
+        <div id="quest-notification-text" class="quest-notification-text"></div>
     </div>
 </div>
 

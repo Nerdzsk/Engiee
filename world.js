@@ -1,23 +1,22 @@
-
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 const loader = new GLTFLoader();
 
-let worldObjects = []; 
+let worldObjects = [];
 
 export let doorMixers = []; // Zoznam prehrávačov pre všetky dvere
-export let wallMap = new Set(); 
+export let wallMap = new Set();
 export let doorObjects = [];
 export let chargerObjects = [];
 
 export function generateRoom(scene, data) {
-    if (!data) return;
-
-    // 1. ČISTENIE SCÉNY
+    if (!data) {
+        console.warn('generateRoom: missing data');
+        return;
+    }
     worldObjects.forEach(obj => scene.remove(obj));
     worldObjects = [];
     wallMap.clear();
-
     const width = data.width || 10;
     const depth = data.depth || 10;
     const halfW = Math.floor(width / 2);
@@ -42,16 +41,19 @@ export function generateRoom(scene, data) {
     
     const floorMat = new THREE.MeshStandardMaterial({ 
         map: floorTexture,
-        color: 0x666666,
-        metalness: 0.85,
-        roughness: 0.3,
-        envMapIntensity: 1.5
+        color: 0x6a7a8a,
+        metalness: 0.3,
+        roughness: 0.7,
+        emissive: 0x1a2a3a,
+        emissiveIntensity: 0.3,
+        envMapIntensity: 1.0
     });
     
     // Jedna veľká podlaha presne podľa veľkosti miestnosti
     const floorGeo = new THREE.BoxGeometry(width + 1, 0.1, depth + 1);
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.set(0, -0.05, 0);
+    floor.receiveShadow = true;
     scene.add(floor);
     worldObjects.push(floor);
 
@@ -86,14 +88,29 @@ export function generateRoom(scene, data) {
         // Použijeme dlhšiu horizontálnu stranu ako šírku pre 1 meter
         const modelWidth = size.x > size.z ? size.x : size.z;
         const scaleFactor = 1.0 / modelWidth; 
-        
         wallTemplate.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        
 
         // Zvyšok kódu (placeWallModel a cykly) zostáva rovnaký
         const placeWallModel = (x, z, rotationY) => {
             const wallClone = wallTemplate.clone();
             wallClone.position.set(x, 0, z); 
             wallClone.rotation.y = rotationY;
+            
+            // Pridanie tieňov a vylepšenie materiálov
+            wallClone.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    
+                    if (child.material && child.material.isMeshStandardMaterial) {
+                        child.material.metalness = 0.5;
+                        child.material.roughness = 0.6;
+                        child.material.envMapIntensity = 0.8;
+                    }
+                }
+            });
+            
             scene.add(wallClone);
             worldObjects.push(wallClone);
         };
@@ -107,12 +124,12 @@ export function generateRoom(scene, data) {
             const eastX = halfW + 0.5;
 
             if (!doorCoords.has(`${westX},${z}`)) {
-                placeWallModel(westX, z, Math.PI / 2);
+                placeWallModel(westX, z, -Math.PI / 2);
             }
             wallMap.add(`${-halfW - 1},${z}`);
 
             if (!doorCoords.has(`${eastX},${z}`)) {
-                placeWallModel(eastX, z, -Math.PI / 2);
+                placeWallModel(eastX, z, Math.PI / 2);
             }
             wallMap.add(`${halfW + 1},${z}`);
         }
@@ -123,12 +140,12 @@ export function generateRoom(scene, data) {
             const southZ = halfD + 0.5;
 
             if (!doorCoords.has(`${x},${northZ}`)) {
-                placeWallModel(x, northZ, 0);
+                placeWallModel(x, northZ, Math.PI);
             }
             wallMap.add(`${x},${-halfD - 1}`);
 
             if (!doorCoords.has(`${x},${southZ}`)) {
-                placeWallModel(x, southZ, Math.PI);
+                placeWallModel(x, southZ, 0);
             }
             wallMap.add(`${x},${halfD + 1}`);
         }
@@ -136,6 +153,24 @@ export function generateRoom(scene, data) {
     }, undefined, (error) => {
         console.error("Chyba pri načítaní modelu steny:", error);
     });
+
+    // Ensure any materials in loaded GLTFs will be visible by default
+    // (This covers models that rely on environment maps or specific PBR setup)
+    function ensureMaterialsVisible(obj) {
+        obj.traverse((child) => {
+            if (child.isMesh && child.material) {
+                try {
+                    // Prefer to keep original material, but make it double-sided and ensure update
+                    child.material.side = THREE.DoubleSide;
+                    child.material.needsUpdate = true;
+                } catch (e) {
+                    // ignore
+                }
+            }
+        });
+    }
+
+    // (debug material replacement removed)
 }
 
 
@@ -152,6 +187,47 @@ export function generateDoors(scene, doorsData) {
         if (!incomingIds.includes(obj.userData.id)) {
             scene.remove(obj);
             // Vyčistíme aj mixer pre tieto dvere
+        console.error("Chyba pri načítaní modelu steny, používam fallback BoxGeometry:", error);
+        // Fallback: jednoduchá stena z BoxGeometry
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.7, roughness: 0.4 });
+        const wallTemplate = new THREE.Group();
+        const wallGeo = new THREE.BoxGeometry(1, 2.5, 0.2); // 1m široká, 2.5m vysoká, 0.2m hrubá
+        const wallMesh = new THREE.Mesh(wallGeo, wallMaterial);
+        wallTemplate.add(wallMesh);
+        const placeWallModel = (x, z, rotationY) => {
+            const wallClone = wallTemplate.clone();
+            wallClone.position.set(x, 1.25, z); // 1.25 je polovica výšky
+            wallClone.rotation.y = rotationY;
+            scene.add(wallClone);
+            worldObjects.push(wallClone);
+        };
+        // 4. GENEROVANIE STIEN (Západ a Východ)
+        for (let z = -halfD; z <= halfD; z++) {
+            const westX = -halfW - 0.5;
+            const eastX = halfW + 0.5;
+            if (!doorCoords.has(`${westX},${z}`)) {
+                placeWallModel(westX, z, -Math.PI / 2);
+            }
+            wallMap.add(`${-halfW - 1},${z}`);
+            if (!doorCoords.has(`${eastX},${z}`)) {
+                placeWallModel(eastX, z, Math.PI / 2);
+            }
+            wallMap.add(`${halfW + 1},${z}`);
+        }
+        // 5. GENEROVANIE STIEN (Sever a Juh)
+        for (let x = -halfW; x <= halfW; x++) {
+            const northZ = -halfD - 0.5;
+            const southZ = halfD + 0.5;
+            if (!doorCoords.has(`${x},${northZ}`)) {
+                placeWallModel(x, northZ, Math.PI);
+            }
+            wallMap.add(`${x},${-halfD - 1}`);
+            if (!doorCoords.has(`${x},${southZ}`)) {
+                placeWallModel(x, southZ, 0);
+            }
+            wallMap.add(`${x},${halfD + 1}`);
+        }
+        console.log("Fallback steny vygenerované.");
             const mixerIndex = doorMixers.indexOf(obj.userData.mixer);
             if (mixerIndex > -1) doorMixers.splice(mixerIndex, 1);
             
@@ -242,6 +318,8 @@ export function generateDoors(scene, doorsData) {
                 };
 
                 scene.add(doorModel);
+                // Ensure visibility of materials for imported model
+                try { ensureMaterialsVisible(doorModel); } catch(e) {}
                 doorObjects.push(doorModel); 
                 doorMixers.push(mixer);
 
@@ -255,43 +333,90 @@ export function generateDoors(scene, doorsData) {
 
 export function generateChargers(scene, chargersData) {
     if (!chargersData) return;
-    chargerObjects = [];
+
+    // 1. Získame zoznam ID chargerov z databázy
+    const incomingIds = chargersData.map(c => c.id);
+
+    // 2. ODSTRÁNENIE ZMAZANÝCH CHARGEROV
+    for (let i = chargerObjects.length - 1; i >= 0; i--) {
+        const obj = chargerObjects[i];
+        if (!incomingIds.includes(obj.userData.id)) {
+            scene.remove(obj);
+            obj.traverse((child) => {
+                if (child.isMesh) {
+                    child.geometry.dispose();
+                    if (child.material.isMaterial) child.material.dispose();
+                }
+            });
+            chargerObjects.splice(i, 1);
+        }
+    }
 
     chargersData.forEach(data => {
-        const oldCharger = scene.getObjectByName(data.id);
-        if (oldCharger) scene.remove(oldCharger);
+        // 3. HĽADÁME EXISTUJÚCI CHARGER
+        let existingCharger = chargerObjects.find(c => c.userData.id === data.id);
 
-        const modelFile = data.isBroken ? 'assets/broken_charger.glb' : 'assets/charger.glb';
+        if (existingCharger) {
+            // --- SMART UPDATE (Charger už existuje) ---
+            const wasBroken = existingCharger.userData.isBroken;
+            const isBrokenNow = data.isBroken ?? false;
 
-        loader.load(modelFile, (gltf) => {
-            const model = gltf.scene;
-            model.name = data.id;
-
-            // --- TU NASTAVUJEŠ ROZDIELNE VEĽKOSTI ---
-            // Ak je pokazená (broken), daj 1.5. Ak je opravená, daj napr. 1.3 (uprav podľa potreby)
-            const currentScale = data.isBroken ? 1 : 1; 
-            model.scale.set(currentScale, currentScale, currentScale);
-
-            // --- TU NASTAVUJEŠ ROZDIELNE VÝŠKY ---
-            // Ak sa jeden model vnára viac, zmeň mu jeho Y hodnotu (0.4 vs 0.38 atď.)
-            const currentHeight = data.isBroken ? 0.4 : 0.4; 
-            model.position.set(data.x || 0, currentHeight, data.z || 0);
+            // AKTUALIZUJ POZÍCIU (toto bolo hlavný problém!)
+            const currentHeight = isBrokenNow ? 0.2 : 0.2;
+            existingCharger.position.set(data.x, currentHeight, data.z);
             
-            // --- SVETELNÝ EFEKT (ostáva rovnaký) ---
-            const lightColor = data.isBroken ? 0xff0000 : 0x00ffff;
-            const statusLight = new THREE.PointLight(lightColor, 0, 3);
-            
-            statusLight.position.set(0, 0.8, 0); 
-            model.add(statusLight);
-
-            model.userData = {
-                id: data.id,
-                isBroken: data.isBroken,
-                statusLight: statusLight
-            };
-
-            scene.add(model);
-            chargerObjects.push(model); 
-        });
+            // Ak sa zmenil stav (opravené/pokazené), vymeň model
+            if (wasBroken !== isBrokenNow) {
+                // Vymažeme starý model a vytvoríme nový
+                scene.remove(existingCharger);
+                chargerObjects.splice(chargerObjects.indexOf(existingCharger), 1);
+                
+                // Zavoláme načítanie nového modelu (kód nižšie)
+                loadNewCharger(scene, data);
+            } else {
+                // Len aktualizuj userData
+                existingCharger.userData.isBroken = isBrokenNow;
+                console.log(`✅ Charger ${data.id} UPDATED to position (${data.x}, ${data.z})`);
+            }
+        } else {
+            // --- NOVÝ CHARGER ---
+            loadNewCharger(scene, data);
+        }
     });
 }
+
+function loadNewCharger(scene, data) {
+    const modelFile = data.isBroken ? 'assets/broken_charger.glb' : 'assets/charger.glb';
+
+    loader.load(modelFile, (gltf) => {
+        const model = gltf.scene;
+        model.name = data.id;
+
+        const currentScale = data.isBroken ? 1 : 1; 
+        model.scale.set(currentScale, currentScale, currentScale);
+
+        const currentHeight = data.isBroken ? 0.2 : 0.2; 
+        model.position.set(data.x, currentHeight, data.z);
+        // Podpora rotácie chargeru (chrbtom k stene = Math.PI/2, -Math.PI/2, Math.PI, 0)
+        model.rotation.y = data.rotation || 0;
+        
+        const lightColor = data.isBroken ? 0xff0000 : 0x00ffff;
+        const statusLight = new THREE.PointLight(lightColor, 0, 3);
+        
+        statusLight.position.set(0, 0.8, 0); 
+        model.add(statusLight);
+
+        model.userData = {
+            id: data.id,
+            isBroken: data.isBroken,
+            statusLight: statusLight
+        };
+
+        scene.add(model);
+        // Ensure materials are visible for charger model too
+        try { ensureMaterialsVisible(model); } catch (e) {}
+        chargerObjects.push(model);
+        console.log(`🆕 Charger ${data.id} LOADED at position (${data.x}, ${data.z})`);
+    });
+}
+

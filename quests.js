@@ -6,6 +6,24 @@
  */
 
 import { watchPlayerQuests, startQuest, completeQuest, getQuestData } from './database.js';
+// Fallback for saveLocalJson if not present
+if (!window.saveLocalJson) {
+    window.saveLocalJson = async (filename, data) => {
+        try {
+            const response = await fetch(`/save-json?file=${filename}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                throw new Error(`Chyba pri ukladaní ${filename}: ${response.statusText}`);
+            }
+        } catch (e) {
+            alert(`Nepodarilo sa uložiť ${filename}: ${e.message}`);
+            console.error(e);
+        }
+    };
+}
 import { speak } from './angie.js';
 
 let currentPlayerId = null;
@@ -52,6 +70,13 @@ export function initQuestsUI(playerId) {
             toggleQuestModal();
         }
     });
+    
+    // Počúvaj na questsUpdated event - update UI s dátami z pamäte
+    window.addEventListener('questsUpdated', (e) => {
+        console.log('[questsUpdated event] Prijal som nové quest data:', e.detail.activeQuests);
+        currentQuestsData = e.detail.activeQuests;
+        updateQuestDisplay(e.detail.activeQuests);
+    });
 
     // Sleduj zmeny v questoch
     if (questsUnsubscribe) {
@@ -63,6 +88,37 @@ export function initQuestsUI(playerId) {
         currentQuestsData = data;
         updateQuestDisplay(data);
     });
+}
+
+/**
+ * refreshQuestUI — manuálne obnovenie quest UI (volá sa po pridaní/dokončení questu)
+ */
+export async function refreshQuestUI() {
+    if (!currentPlayerId) {
+        console.warn('Cannot refresh quest UI: No player ID set');
+        return;
+    }
+    
+    try {
+        const res = await fetch('player_quests.json');
+        const players = await res.json();
+        const player = players.find(p => p.playerId === currentPlayerId);
+        
+        console.log('[refreshQuestUI] Player data:', player);
+        console.log('[refreshQuestUI] Player quests:', player?.quests);
+        console.log('[refreshQuestUI] Active quests:', player?.quests?.active);
+        
+        if (player && player.quests && player.quests.active) {
+            currentQuestsData = player.quests.active;
+            console.log('[refreshQuestUI] Updating display with quests:', currentQuestsData);
+            updateQuestDisplay(player.quests.active);
+            console.log('✓ Quest UI refreshed');
+        } else {
+            console.warn('[refreshQuestUI] No player or quests found');
+        }
+    } catch (e) {
+        console.error('Failed to refresh quest UI:', e);
+    }
 }
 
 /**
@@ -94,39 +150,48 @@ export function updateQuestDisplay(quests) {
     const content = document.getElementById('quest-modal-content');
     if (!content) return;
 
-    console.log("🎨 Updating quest display, currentTab:", currentTab, "quests:", quests);
+    console.log('[updateQuestDisplay] Dostané questy:', quests);
+    console.log('[updateQuestDisplay] Aktuálna záložka:', currentTab);
 
     // Vyčisti starý obsah
     content.innerHTML = '';
 
-    // Filtruj podľa tabu
-    let filteredQuests = [];
+    // Filtruj questy podľa aktuálnej záložky
+    let questsToDisplay = [];
     
     if (currentTab === 'main') {
-        filteredQuests = quests.filter(q => q.status === 'active' && q.questType === 'main');
+        questsToDisplay = quests.filter(q => q.questType === 'main' && q.status !== 'completed');
     } else if (currentTab === 'side') {
-        filteredQuests = quests.filter(q => q.status === 'active' && q.questType === 'side');
+        questsToDisplay = quests.filter(q => q.questType === 'subquest' && q.status !== 'completed');
     } else if (currentTab === 'completed') {
-        filteredQuests = quests.filter(q => q.status === 'completed');
+        questsToDisplay = quests.filter(q => q.status === 'completed');
     }
 
-    console.log("✅ Filtered quests:", filteredQuests);
+    console.log('[updateQuestDisplay] Zobrazujem questy pre tab "' + currentTab + '":', questsToDisplay);
 
-    if (filteredQuests.length === 0) {
-        content.innerHTML = `<div style="color: #888; text-align: center; padding: 40px; font-family: 'Courier New', monospace;">
-            No ${currentTab} quests
-        </div>`;
+    // Ak nie sú žiadne questy, zobraz prázdnu správu
+    if (questsToDisplay.length === 0) {
+        let emptyMessage = '';
+        if (currentTab === 'main') {
+            emptyMessage = 'Žiadne hlavné questy';
+        } else if (currentTab === 'side') {
+            emptyMessage = 'Žiadne vedľajšie questy';
+        } else {
+            emptyMessage = 'Žiadne dokončené questy';
+        }
+        content.innerHTML = `<div style="color: #888; text-align: center; padding: 40px; font-family: 'Courier New', monospace;">${emptyMessage}</div>`;
         return;
     }
 
-    // Vykresli questy
-    filteredQuests.forEach((playerQuest) => {
+    // Pomocná funkcia na vykreslenie questov (aj subquestov)
+    function renderQuest(playerQuest, indent = 0) {
         const questEl = document.createElement('div');
         questEl.className = 'quest-item';
+        questEl.style.marginLeft = `${indent * 32}px`;
 
         const title = document.createElement('div');
         title.className = 'quest-item-title';
-        const questBadge = playerQuest.questType === 'main' ? '⭐' : '◇';
+        const questBadge = playerQuest.questType === 'main' ? '⭐' : '→';
         title.innerHTML = `${playerQuest.status === 'completed' ? '✓' : '➤'} ${questBadge} ${playerQuest.questTitle}`;
         questEl.appendChild(title);
 
@@ -186,7 +251,6 @@ export function updateQuestDisplay(quests) {
                 e.stopPropagation();
                 completeBtn.disabled = true;
                 completeBtn.innerText = 'CLAIMING REWARDS...';
-                
                 // Fetchni quest data a completuj quest
                 const questData = await getQuestData(playerQuest.questId);
                 if (questData) {
@@ -196,7 +260,6 @@ export function updateQuestDisplay(quests) {
                         const questTitle = playerQuest.questTitle;
                         const xpReward = questData.rewards?.xp || 0;
                         const itemsCount = questData.rewards?.items?.length || 0;
-                        
                         const celebrationMsg = {
                             text: `🎉 QUEST COMPLETE: ${questTitle}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -206,10 +269,7 @@ export function updateQuestDisplay(quests) {
 Fantastic work, unit!`,
                             options: [{ text: "Continue", action: () => document.getElementById('angie-ui').classList.add('hidden') }]
                         };
-                        
                         speak(celebrationMsg);
-                        
-                        // Zatvri modal a updatuj display (quest zmizne z active)
                         setTimeout(() => {
                             toggleQuestModal();
                         }, 2000);
@@ -228,7 +288,27 @@ Fantastic work, unit!`,
         }
 
         content.appendChild(questEl);
-    });
+
+        // Ak má quest subquesty, vykresli ich pod ním
+        const questData = window.allQuestDefs?.find(q => q.id === playerQuest.questId);
+        if (questData && Array.isArray(questData.subquests)) {
+            questData.subquests.forEach(subId => {
+                const subQ = quests.find(q => q.questId === subId);
+                if (subQ) renderQuest(subQ, indent + 1);
+            });
+        }
+    }
+
+    // Získaj všetky definície questov (pre subquesty)
+    (async () => {
+        if (!window.allQuestDefs) {
+            try {
+                const res = await fetch('quests.json');
+                window.allQuestDefs = await res.json();
+            } catch {}
+        }
+        questsToDisplay.forEach(q => renderQuest(q, 0));
+    })();
 }
 
 /**

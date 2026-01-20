@@ -1,0 +1,5 @@
+{
+  "name": "Engee3D Favicon",
+  "description": "Simple favicon for Engee3D game.",
+  "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='#222'/><text x='50%' y='50%' text-anchor='middle' dy='.35em' font-size='36' font-family='monospace' fill='#00ffff'>E</text></svg>"
+}
