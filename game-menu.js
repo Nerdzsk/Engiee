@@ -30,69 +30,48 @@ function initGameMenu() {
     // Nová hra
     menuNewGame.addEventListener('click', async () => {
         if (confirm('Naozaj chceš začať novú hru? Neuložený progres bude stratený.')) {
-            console.log('[NEW GAME] Starting new game...');
             closeGameMenu();
             
-            // CLEANUP PRED resetom (aby sa určite vykonal)
-            console.log('[NEW GAME] 1/5 - Cleaning up video...');
+            // CLEANUP: Video
             const introVideo = document.getElementById('intro-video');
             if (introVideo) {
                 introVideo.pause();
                 introVideo.currentTime = 0;
                 introVideo.src = '';
-                console.log('[NEW GAME] Video cleaned');
             }
             const introOverlay = document.getElementById('intro-video-overlay');
             if (introOverlay) {
                 introOverlay.classList.add('hidden');
             }
             
-            // Vyčisti storage
-            console.log('[NEW GAME] 2/5 - Cleaning storage...');
+            // Vyčisti storage (zachovaj Firebase config)
             const firebaseConfig = localStorage.getItem('firebaseConfig');
             localStorage.clear();
             sessionStorage.clear();
             if (firebaseConfig) {
                 localStorage.setItem('firebaseConfig', firebaseConfig);
             }
-            console.log('[NEW GAME] Storage cleaned');
             
             // Vyčisti Service Worker cache
-            console.log('[NEW GAME] 3/5 - Cleaning service worker cache...');
             if ('caches' in window) {
                 try {
                     const cacheNames = await caches.keys();
                     await Promise.all(cacheNames.map(name => caches.delete(name)));
-                    console.log('[NEW GAME] Service worker cache deleted:', cacheNames.length);
                 } catch (err) {
                     console.warn('[NEW GAME] Cache cleanup failed:', err);
                 }
-            } else {
-                console.log('[NEW GAME] No service worker cache found');
             }
             
-            // Ulož backup
-            console.log('[NEW GAME] 4/5 - Saving backup...');
+            // Ulož backup a resetuj
             await saveGame(PLAYER_ID, 'before_reset');
-            
-            // Resetuj hru
-            console.log('[NEW GAME] 5/5 - Resetting game data...');
             const success = await resetGame(PLAYER_ID);
             
             if (success) {
-                console.log('[NEW GAME] ✅ Game reset successful');
-                
-                // Počkaj 500ms na disk write
-                console.log('[NEW GAME] Waiting for disk write...');
+                // Počkaj na disk write a reload
                 await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // HARD RELOAD
-                console.log('[NEW GAME] 🔄 Executing hard reload...');
-                const reloadUrl = window.location.origin + window.location.pathname + '?_=' + Date.now();
-                console.log('[NEW GAME] Reload URL:', reloadUrl);
-                window.location.href = reloadUrl;
+                window.location.href = window.location.origin + window.location.pathname + '?_=' + Date.now();
             } else {
-                console.error('[NEW GAME] ❌ Reset failed!');
+                console.error('[NEW GAME] Reset failed!');
                 alert('❌ Chyba pri resetovaní hry!');
             }
         }

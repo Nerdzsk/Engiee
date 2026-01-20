@@ -20,11 +20,39 @@ import { initGameMenu } from './game-menu.js';
 let isRobotInChargerZone = false;
 let robot = {
     position: { x: 0, y: 0, z: 0 },
-    accumulator: 100,
+    accumulator: 0,
     maxAccumulator: 10000,
     maxEnergy: 200,
-    energy: 100
+    energy: 200
 };
+
+// Načítaj player state z player_quests.json pri štarte
+async function loadPlayerState() {
+    try {
+        const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+        const response = await fetchNoCache('player_quests.json');
+        const players = await response.json();
+        const player = players.find(p => p.playerId === 'robot1');
+        
+        if (player) {
+            robot.energy = player.energy || 200;
+            robot.maxEnergy = player.maxEnergy || 200;
+            robot.accumulator = player.accumulator || 0;
+            robot.maxAccumulator = player.maxAccumulator || 10000;
+            robot.position.x = player.positionX || 0;
+            robot.position.z = player.positionZ || 0;
+            
+            // Update HUD hneď po načítaní
+            updateEnergyHUD(robot.energy, robot.maxEnergy);
+            updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+        }
+    } catch (err) {
+        console.error('Failed to load player state:', err);
+    }
+}
+
+// Spusti načítanie ihneď
+loadPlayerState();
 
 // === PLAYER MODEL ===
 let robotModel = null;
@@ -125,14 +153,10 @@ window.emptyAccumulator = () => {
 
 // Rebuild scene from scratch (lights + helpers + room)
 function resetWorldScene(roomData) {
-    console.log('[resetWorldScene] Začínam resetovanie scény s roomData:', roomData);
-    
     // Remove all children from scene
     while (scene.children.length > 0) {
         scene.remove(scene.children[0]);
     }
-    
-    console.log('[resetWorldScene] Scéna vyprázdnená, pridávam svetlá...');
 
     // Vylepšené osvetlenie s tieňmi a atmosférou
     // 1. Ambient svetlo (základné osvetlenie)
@@ -168,26 +192,18 @@ function resetWorldScene(roomData) {
     pointLight2.position.set(10, 6, 10);
     scene.add(pointLight2);
 
-    // Helpers (grid odstránený)
-
-    // Room
+    // Room generation
     if (!roomData) {
         console.warn('resetWorldScene: missing roomData');
         return;
     }
-    console.log('[resetWorldScene] Generujem miestnosť...');
     generateRoom(scene, roomData);
-    console.log('[resetWorldScene] Generujem dvere...');
     if (roomData.doors) generateDoors(scene, roomData.doors);
-    console.log('[resetWorldScene] Generujem nabíjačky...');
     if (roomData.chargers) generateChargers(scene, roomData.chargers);
 
     // Re-add robot model if it was already loaded
     if (robotModel) {
-        console.log('[resetWorldScene] Pridávam robot model späť do scény');
         scene.add(robotModel);
-    } else {
-        console.log('[resetWorldScene] Robot model ešte nie je načítaný');
     }
 
     // Ensure camera looks at origin
@@ -233,41 +249,27 @@ async function checkAndShowIntro(playerId) {
         
         // Ak už videl intro, skonči
         if (player.hasSeenIntro) {
-            console.log('[Intro] Hráč už videl intro dialóg, preskakujem.');
             return;
         }
         
-        console.log('[Intro] Zobrazujem úvodný dialóg ENGEE...');
-        
         // Zobraz intro dialóg
         speak(ENGEE_DIALOGUES.INTRO, async () => {
-            console.log('[Intro] ✅ Callback bol zavolaný! Dialóg ukončený, spúšťam hlavný quest "quest_where_am_i"...');
-            
             // Načítaj quest data a spusť ho
             const questData = await getQuestDataLocal('quest_where_am_i');
-            console.log('[Intro] Quest data načítané:', questData);
             
             if (questData) {
                 const questStarted = await startQuest(playerId, 'quest_where_am_i', questData);
-                console.log('[Intro] startQuest returned:', questStarted);
                 
                 if (questStarted) {
-                    console.log('[Intro] ✅ Hlavný quest "quest_where_am_i" bol spustený.');
-                    
-                    // Zobraz notifikáciu o novom queste
-                    console.log('[Intro] Zobrazujem notifikáciu...');
                     showQuestNotification(questData.title || 'Kde to som');
-                    
-                    // Quest UI sa automaticky aktualizuje cez 'questsUpdated' event
-                    console.log('[Intro] Quest UI sa aktualizuje automaticky cez event...');
                 } else {
 
 // Exportuj pre použitie v game-menu.js (NEW GAME)
 window.checkAndShowIntro = checkAndShowIntro;
-                    console.error('[Intro] ❌ Quest sa nepodarilo spustiť!');
+                    console.error('[Intro] Quest sa nepodarilo spustiť');
                 }
             } else {
-                console.error('[Intro] ❌ Quest "quest_where_am_i" nebol nájdený v quests.json!');
+                console.error('[Intro] Quest "quest_where_am_i" nebol nájdený');
             }
             
             // Označ intro ako videný (uloženie do player_quests.json)
@@ -371,22 +373,18 @@ function initGame() {
         return out;
     }
 
-    console.log('[InitGame] Načítavam rooms.json...');
     // Cache busting helper
     const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
     
     fetchNoCache('rooms.json')
         .then(res => {
             if (!res.ok) throw new Error(`rooms.json HTTP ${res.status}`);
-            console.log('[InitGame] rooms.json načítaný, parsovanie...');
             return res.json();
         })
         .then(rooms => {
-            console.log('[InitGame] Rooms data:', rooms);
             if (rooms && rooms.length > 0) {
                 const raw = rooms[0];
                 const roomData = normalizeRoom(raw);
-                console.log('[InitGame] Volám resetWorldScene s roomData:', roomData);
                 resetWorldScene(roomData);
             } else {
                 console.warn('No room data found in rooms.json');

@@ -43,10 +43,11 @@ export function watchPedometerSteps(playerId, robotObj, callback) {
             const data = docSnap.data();
             const firebaseAccumulator = data.accumulator || 0;
             
-            // Ak sa hodnota v Firebase zmenila, aktualizuj lokálny robot objekt
-            if (robotObj && firebaseAccumulator !== robotObj.accumulator) {
-                console.log(`[Pedometer] Nové kroky z Firebase: ${firebaseAccumulator}`);
-                robotObj.accumulator = Math.min(firebaseAccumulator, robotObj.maxAccumulator || 100);
+            // Aktualizuj LEN ak Firebase hodnota je VYŠŠIA (nové kroky pridané)
+            // Toto zabezpečí že NEW GAME (ACC=0) nebude prepísaný starou Firebase hodnotou
+            if (robotObj && firebaseAccumulator > robotObj.accumulator) {
+                console.log(`[Pedometer] Nové kroky z Firebase: ${robotObj.accumulator} → ${firebaseAccumulator}`);
+                robotObj.accumulator = Math.min(firebaseAccumulator, robotObj.maxAccumulator || 10000);
                 
                 // Zavolaj callback pre aktualizáciu HUD
                 if (callback) callback(robotObj.accumulator);
@@ -226,11 +227,12 @@ export async function loadGame(playerId, slotName = 'autosave') {
  */
 export async function resetGame(playerId) {
     try {
-        // Lokálna verzia: načítaj všetko z player_quests.json
+        // 1. Resetuj lokálny JSON
         const res = await fetch('player_quests.json');
         const data = await res.json();
         const player = data.find(q => q.playerId === playerId);
         if (!player) throw new Error('Player data not found');
+        
         // Resetuj základné hodnoty
         player.positionX = 0;
         player.positionZ = 0;
@@ -257,14 +259,27 @@ export async function resetGame(playerId) {
         player.inventory = {};
         player.kodex = {};
         player.quests = { active: [], completed: [] };
-        // Ulož späť
+        
+        // Ulož lokálny JSON
         if (window.saveLocalJson) {
             await window.saveLocalJson('player_quests.json', data);
-            console.log('Game reset to default state');
-            return true;
+            console.log('[resetGame] Local JSON reset complete');
         } else {
             throw new Error('saveLocalJson helper nie je dostupný!');
         }
+        
+        // 2. Resetuj Firebase accumulator (pedometer)
+        try {
+            const playerRef = doc(db, "players", playerId);
+            await updateDoc(playerRef, {
+                accumulator: 0
+            });
+            console.log('[resetGame] Firebase accumulator reset to 0');
+        } catch (firebaseError) {
+            console.warn('[resetGame] Firebase reset failed (non-critical):', firebaseError);
+        }
+        
+        return true;
     } catch (error) {
         console.error('Error resetting game:', error);
         return false;
