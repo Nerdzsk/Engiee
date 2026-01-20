@@ -112,3 +112,88 @@
 - Pri grafických úpravách: Používať PBR materiály (metalness/roughness)
 - Pri kolíziách: Preferuj kruhové kolízie pre objekty s rotáciou
 - Pri kamerových úpravách: Zachovať dynamickú výšku podľa vzdialenosti
+
+
+---
+
+## Kritické technické poznatky (Lessons Learned)
+
+### Anti-patterns (Čo NEROBÍŤ) ❌
+
+- **window.location.reload(true)** – deprecated, nefunguje spoľahlivo
+- **Direct fetch na playerquests.json** – browser cache vráti staré dáta
+- **HTML5 video s autoplay bez cleanup** – blokuje Three.js scénu po reloade
+- **Reload bez čakania (500ms delay)** – JSON súbor sa nestihne uložiť na disk
+- **Callback hell v async kóde** – použi async/await namiesto vnorených callbackov
+
+### Patterns that work (Čo ROBÍŤ) ✅
+
+- **Event-based UI updates**: `window.dispatchEvent(new CustomEvent('questsUpdated', { detail: data }))`
+- **Cache busting reload**: `window.location.replace(url + '?t=' + Date.now())`
+- **Video cleanup**: `video.src = ''` pred každým reloadom
+- **Async/await pattern**: namiesto callback hell používaj modernú syntax
+- **Počkaj na disk write**: `await new Promise(resolve => setTimeout(resolve, 500))` pred reloadom
+
+### Kľúčové systémy a flow
+
+#### Quest system flow
+```javascript
+// Správny postup:
+1. speak(dialogue, async () => {           // Dialog callback
+2.   await startQuest(questId, data);     // Start quest
+3.   showQuestNotification(title);        // Zobraz notifikáciu
+4. });
+// startQuest() automaticky dispatchne 'questsUpdated' event
+```
+
+#### NEW GAME flow
+```javascript
+// Správny postup:
+1. await saveGame(playerId);              // Ulož aktuálny stav
+2. await resetGame(playerId);             // Reset player dát
+3. video.pause(); video.src = '';         // Cleanup HTML5 video
+4. localStorage.clear();                   // Vymaž storage (okrem Firebase config)
+5. await new Promise(r => setTimeout(r, 500)); // Počkaj na disk write
+6. window.location.replace(url + '?t=' + Date.now()); // Cache-bust reload
+```
+
+#### Event-based updates (anti-cache pattern)
+```javascript
+// V database.js po zmene stavu:
+window.dispatchEvent(new CustomEvent('questsUpdated', {
+  detail: { activeQuests: player.quests.active }
+}));
+
+// V UI súbore (quests.js, hud.js):
+window.addEventListener('questsUpdated', (event) => {
+  updateQuestDisplay(event.detail.activeQuests);
+});
+```
+
+### Debugging (console commands)
+
+Tieto funkcie sú dostupné v browser console pre rýchle testovanie:
+
+```javascript
+robot                    // Zobraz robot objekt
+setAccumulator(5000)     // Nastav ACC hodnotu
+fillAccumulator()        // Naplň ACC na maximum
+emptyAccumulator()       // Vyprázdni ACC
+setEnergy(100)          // Nastav HP hodnotu
+resetWorldScene()       // Reset scény (pre NEW GAME)
+```
+
+### Dôležité konštanty
+
+- **Accumulator capacity**: 10000 (nie 100!)
+- **Disk write delay**: 500ms minimálne pred reloadom
+- **Quest notification duration**: 4 sekundy
+- **Video cleanup**: Vždy `video.src = ''` pred reload/cleanup
+
+### Console log prefixes (pre debugging)
+
+- `[NEW GAME]` – nová hra flow
+- `[Intro]` – intro dialog systém
+- `[Quest]` – quest operácie
+- `[resetWorldScene]` – scéna rendering
+- `[Firebase]` – pedometer real-time updates
