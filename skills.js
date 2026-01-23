@@ -137,6 +137,18 @@ const KNOWN_PERKS = [
             target: 100,
             hint: 'Splň achievement "Prvé kroky" (100 krokov od začiatku hry).'
         }
+    },
+    {
+        id: 'acc_capacity_tier1',
+        title: 'Zvýšenie kapacity akumulátora — TIER 1',
+        description: '+250 k max kapacite akumulátora',
+        requires: {
+            type: 'achievement',
+            id: 'first_thousand',
+            title: 'Dosiahnu prvú tisícku',
+            target: 1000,
+            hint: 'Splň cieľ "Dosiahnu prvú tisícku" a maj Strength na úrovni 1+'
+        }
     }
 ];
 
@@ -201,8 +213,23 @@ export function initSkillsUI(playerId, robotObj) {
     });
     
     // Počúvaj na zmeny v accumulator (z pedometra)
-    window.addEventListener('accumulatorUpdated', () => {
+    window.addEventListener('accumulatorUpdated', (event) => {
         if (currentTab === 'fitness' && isSkillsModalOpen) {
+            try {
+                const detail = event.detail || {};
+                if (currentRobotObj) {
+                    if (typeof detail.totalPedometerEnergy === 'number') {
+                        currentRobotObj.totalPedometerEnergy = detail.totalPedometerEnergy;
+                    }
+                    if (typeof detail.dailySteps === 'number') {
+                        const prev = currentRobotObj.dailySteps || 0;
+                        currentRobotObj.dailySteps = Math.max(prev, detail.dailySteps);
+                    }
+                    if (detail.dailyStepsDate) {
+                        currentRobotObj.dailyStepsDate = detail.dailyStepsDate;
+                    }
+                }
+            } catch (_) {}
             loadSkillsData(); // Refresh FITNESS tab pri zmene ACC
         }
     });
@@ -358,8 +385,19 @@ async function loadSkillsData() {
             // Aktualizuj robot objekt s hodnotami z JSON
             if (currentRobotObj) {
                 currentRobotObj.totalPedometerEnergy = player.totalPedometerEnergy || 0;
-                currentRobotObj.dailySteps = player.dailySteps || 0;
-                currentRobotObj.dailyStepsDate = player.dailyStepsDate || null;
+                const jsonDaily = player.dailySteps || 0;
+                const jsonDate = player.dailyStepsDate || null;
+                const rtDaily = currentRobotObj.dailySteps || 0;
+                const rtDate = currentRobotObj.dailyStepsDate || null;
+                if (jsonDate && rtDate && jsonDate === rtDate) {
+                    // Rovnaký deň: nikdy neznižuj runtime hodnotu
+                    currentRobotObj.dailySteps = Math.max(rtDaily, jsonDaily);
+                    currentRobotObj.dailyStepsDate = rtDate;
+                } else {
+                    // Ak runtime nemá nastavený dátum/hodnotu, preber JSON; inak zachovaj runtime
+                    currentRobotObj.dailySteps = rtDaily || jsonDaily;
+                    currentRobotObj.dailyStepsDate = rtDate || jsonDate;
+                }
             }
             
             currentSkillsData = {
@@ -798,27 +836,46 @@ function renderFitnessTab(content, accumulator, maxAccumulator, achievements) {
     grid.appendChild(accPanel);
     grid.appendChild(dailyPanel);
     
-    // === ACHIEVEMENTS (Prvé kroky) ===
+    // === ACHIEVEMENTS (Prvé kroky + Prvá tisícka) ===
     const achWrap = document.createElement('div');
     achWrap.className = 'fitness-achievements-wrap';
     const first = Array.isArray(achievements) ? achievements.find(a => a.id === 'first_steps') : null;
-    const current = first ? (first.current || 0) : totalPedometer;
-    const target = first ? (first.target || 100) : 100;
-    const displayCurrent = Math.min(current, target);
-    const completed = first ? !!first.completed : displayCurrent >= target;
-    const percent = Math.min(100, Math.floor((displayCurrent / target) * 100));
+    const firstCurrent = first ? (first.current || 0) : totalPedometer;
+    const firstTarget = first ? (first.target || 100) : 100;
+    const firstDisplay = Math.min(firstCurrent, firstTarget);
+    const firstDone = first ? !!first.completed : firstDisplay >= firstTarget;
+    const firstPercent = Math.min(100, Math.floor((firstDisplay / firstTarget) * 100));
+
+    const thousand = Array.isArray(achievements) ? achievements.find(a => a.id === 'first_thousand') : null;
+    const thouCurrent = thousand ? (thousand.current || 0) : totalPedometer;
+    const thouTarget = thousand ? (thousand.target || 1000) : 1000;
+    const thouDisplay = Math.min(thouCurrent, thouTarget);
+    const thouDone = thousand ? !!thousand.completed : thouDisplay >= thouTarget;
+    const thouPercent = Math.min(100, Math.floor((thouDisplay / thouTarget) * 100));
+
     achWrap.innerHTML = `
         <div class="fitness-section-title">🏁 Ciele a Achievementy</div>
-        <div class="achievement-card ${completed ? 'completed' : ''}">
+        <div class="achievement-card ${firstDone ? 'completed' : ''}">
             <div class="ach-header">
                 <div class="ach-title">Prvé kroky</div>
-                <div class="ach-status">${completed ? '✓ Splnené' : `${percent}%`}</div>
+                <div class="ach-status">${firstDone ? '✓ Splnené' : `${firstPercent}%`}</div>
             </div>
             <div class="ach-desc">Urob prvých 100 krokov od začiatku hry</div>
             <div class="ach-progress">
-                <div class="ach-fill" style="width:${percent}%"></div>
+                <div class="ach-fill" style="width:${firstPercent}%"></div>
             </div>
-            <div class="ach-values">${displayCurrent} / ${target} krokov</div>
+            <div class="ach-values">${firstDisplay} / ${firstTarget} krokov</div>
+        </div>
+        <div class="achievement-card ${thouDone ? 'completed' : ''}">
+            <div class="ach-header">
+                <div class="ach-title">Dosiahnu prvú tisícku</div>
+                <div class="ach-status">${thouDone ? '✓ Splnené' : `${thouPercent}%`}</div>
+            </div>
+            <div class="ach-desc">Dosiahni 1000 krokov (TOTAL)</div>
+            <div class="ach-progress">
+                <div class="ach-fill" style="width:${thouPercent}%"></div>
+            </div>
+            <div class="ach-values">${thouDisplay} / ${thouTarget} krokov</div>
         </div>
     `;
 

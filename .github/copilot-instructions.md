@@ -208,7 +208,8 @@ resetWorldScene()       // Reset scény (pre NEW GAME)
 
 ### Dôležité konštanty
 
-- **Accumulator capacity**: 10000 (nie 100!)
+- **Accumulator capacity**: používaj `robot.maxAccumulator` (aktuálne default 1000). Číslo nikdy nehardcoduj do textov ani kódu.
+- **Battery capacity**: používaj `robot.maxEnergy` (aktuálne default 200). Číslo nikdy nehardcoduj do textov ani kódu.
 - **Disk write delay**: 500ms minimálne pred reloadom
 - **Quest notification duration**: 4 sekundy
 - **Video cleanup**: Vždy `video.src = ''` pred reload/cleanup

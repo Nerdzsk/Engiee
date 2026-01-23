@@ -144,6 +144,32 @@ async function updateAchievementsForPedometer(playerId, totalPedometerEnergy, cu
             console.log('[Achievement] Completed: Prvé kroky');
         }
 
+        // Nový cieľ: 'first_thousand' – dosiahni 1000 krokov (TOTAL)
+        let thousand = player.achievements.find(a => a.id === 'first_thousand');
+        if (!thousand) {
+            thousand = {
+                id: 'first_thousand',
+                title: 'Dosiahnu prvú tisícku',
+                description: 'Dosiahni 1000 krokov od začiatku hry (TOTAL)',
+                category: 'fitness',
+                target: 1000,
+                current: 0,
+                completed: false,
+                completedAt: null
+            };
+            player.achievements.push(thousand);
+        }
+        const prevThousandCompleted = !!thousand.completed;
+        const thousandTarget = thousand.target || 1000;
+        const thousandClamped = Math.min(mirroredTotal, thousandTarget);
+        thousand.current = Math.max(thousand.current || 0, thousandClamped);
+        if (!thousand.completed && thousand.current >= thousandTarget) {
+            thousand.completed = true;
+            thousand.completedAt = new Date().toISOString();
+            console.log('[Achievement] Completed: Prvá tisícka');
+        }
+        const thousandJustCompleted = !prevThousandCompleted && !!thousand.completed;
+
         // Ulož aktuálne čísla ACC, Total a Daily Steps, aby UI bolo konzistentné
         player.accumulator = currentAccumulator;
         player.totalPedometerEnergy = totalPedometerEnergy;
@@ -189,6 +215,46 @@ async function updateAchievementsForPedometer(playerId, totalPedometerEnergy, cu
             }
         }
 
+        // Skontroluj a prípadne odomkni nový perk: Zvýšenie kapacity akumulátora — TIER 1
+        // Požiadavky: achievement 'first_thousand' splnený a Strength (S) level >= 1
+        try {
+            const thousandAch = player.achievements.find(a => a.id === 'first_thousand');
+            const strengthLevel = (player.skills && player.skills.S && (player.skills.S.level || 0)) || 0;
+            if (thousandAch && thousandAch.completed && strengthLevel >= 1) {
+                if (!Array.isArray(player.perks)) player.perks = [];
+                const perkId2 = 'acc_capacity_tier1';
+                const already2 = player.perks.find(p => p.id === perkId2);
+                if (!already2) {
+                    player.perks.push({
+                        id: perkId2,
+                        title: 'Zvýšenie kapacity akumulátora — TIER 1',
+                        description: '+250 k max kapacite akumulátora',
+                        acquiredAt: new Date().toISOString(),
+                        applied: true
+                    });
+                    const beforeAcc = player.maxAccumulator || 1000;
+                    player.maxAccumulator = beforeAcc + 250;
+                    // Udrž aktuálny accumulator v limite
+                    player.accumulator = Math.min(player.accumulator || 0, player.maxAccumulator);
+
+                    try {
+                        if (window && window.robot) {
+                            window.robot.maxAccumulator = player.maxAccumulator;
+                            if (typeof window.updateAccumulatorHUD === 'function') {
+                                window.updateAccumulatorHUD(window.robot.accumulator, window.robot.maxAccumulator);
+                            }
+                        }
+                    } catch (_) { /* ignore */ }
+
+                    // Notifikuj UI o novom perku
+                    window.dispatchEvent(new CustomEvent('perksUpdated', {
+                        detail: { perkId: perkId2, perks: player.perks }
+                    }));
+                    console.log('[Perk] Unlocked: Zvýšenie kapacity akumulátora — TIER 1 (+250 maxAccumulator)');
+                }
+            }
+        } catch (e2) { /* no-op */ }
+
         player.lastUpdate = Date.now();
 
         if (window.saveLocalJson) {
@@ -199,6 +265,16 @@ async function updateAchievementsForPedometer(playerId, totalPedometerEnergy, cu
         window.dispatchEvent(new CustomEvent('achievementsUpdated', {
             detail: { achievements: player.achievements }
         }));
+        // Ak práve prešiel cieľ "Prvá tisícka", pošli špecifický event pre toast
+        if (thousandJustCompleted) {
+            window.dispatchEvent(new CustomEvent('achievementCompleted', {
+                detail: {
+                    id: 'first_thousand',
+                    title: 'Cieľ splnený: Prvá tisícka',
+                    description: 'Dosiahol si 1000 krokov (TOTAL)'
+                }
+            }));
+        }
         return true;
     } catch (e) {
         console.error('[updateAchievementsForPedometer] Error:', e);
@@ -234,10 +310,13 @@ export async function ensureDailyStepsForToday(playerId, robotObj) {
             changed = true;
         }
 
-        // Sync s runtime robotom (ak existuje)
-        if (typeof player.dailySteps === 'number' && robotObj && player.dailySteps !== robotObj.dailySteps) {
-            robotObj.dailySteps = player.dailySteps;
-            changed = true;
+        // Sync s runtime robotom (ak existuje) — nikdy neznižuj runtime hodnotu
+        if (typeof player.dailySteps === 'number' && robotObj) {
+            // Ak JSON má vyššiu hodnotu (napr. po reload), povýš ju
+            if (player.dailySteps > (robotObj.dailySteps || 0)) {
+                robotObj.dailySteps = player.dailySteps;
+                changed = true;
+            }
         }
 
         if (changed) {
@@ -512,6 +591,16 @@ export async function resetGame(playerId) {
                 completed: false,
                 completedAt: null,
                 rewards: { perkUnlocked: 'endurance_boost_1' }
+            },
+            {
+                id: 'first_thousand',
+                title: 'Dosiahnu prvú tisícku',
+                description: 'Dosiahni 1000 krokov od začiatku hry (TOTAL)',
+                category: 'fitness',
+                target: 1000,
+                current: 0,
+                completed: false,
+                completedAt: null
             }
         ];
         // Reset perks
@@ -715,6 +804,41 @@ export async function investSkillEnergy(playerId, skillKey, amount, robotObj) {
         // Zníž accumulator
         robotObj.accumulator -= amount;
         player.accumulator = robotObj.accumulator;
+
+        // Perk unlock check: ACC capacity TIER 1 po splnení "first_thousand" a Strength >= 1
+        // Robíme tu, aby sa perk odomkol aj bez nových krokov z Firebase (po investovaní do S)
+        let newlyUnlockedPerkId = null;
+        try {
+            if (!Array.isArray(player.perks)) player.perks = [];
+            if (!Array.isArray(player.achievements)) player.achievements = [];
+            const thousandAch = player.achievements.find(a => a.id === 'first_thousand' && a.completed);
+            const strengthLevelNow = (player.skills && player.skills.S && (player.skills.S.level || 0)) || 0;
+            if (thousandAch && strengthLevelNow >= 1) {
+                const exists = player.perks.find(p => p.id === 'acc_capacity_tier1');
+                if (!exists) {
+                    player.perks.push({
+                        id: 'acc_capacity_tier1',
+                        title: 'Zvýšenie kapacity akumulátora — TIER 1',
+                        description: '+250 k max kapacite akumulátora',
+                        acquiredAt: new Date().toISOString(),
+                        applied: true
+                    });
+                    const beforeAcc = player.maxAccumulator || 1000;
+                    player.maxAccumulator = beforeAcc + 250;
+                    player.accumulator = Math.min(player.accumulator || 0, player.maxAccumulator);
+                    try {
+                        if (window && window.robot) {
+                            window.robot.maxAccumulator = player.maxAccumulator;
+                            if (typeof window.updateAccumulatorHUD === 'function') {
+                                window.updateAccumulatorHUD(window.robot.accumulator, window.robot.maxAccumulator);
+                            }
+                        }
+                    } catch (_) { /* ignore runtime sync issues */ }
+                    newlyUnlockedPerkId = 'acc_capacity_tier1';
+                    console.log('[Perk] Unlocked (via skills): Zvýšenie kapacity akumulátora — TIER 1 (+250 maxAccumulator)');
+                }
+            }
+        } catch (_) { /* no-op */ }
         
         // Ulož zmeny
         if (window.saveLocalJson) {
@@ -734,6 +858,11 @@ export async function investSkillEnergy(playerId, skillKey, amount, robotObj) {
                     accumulator: robotObj.accumulator
                 }
             }));
+            if (newlyUnlockedPerkId) {
+                window.dispatchEvent(new CustomEvent('perksUpdated', {
+                    detail: { perkId: newlyUnlockedPerkId, perks: player.perks }
+                }));
+            }
             
             return {
                 success: true,

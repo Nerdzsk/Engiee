@@ -306,3 +306,12 @@ console.log(robot.accumulator); // Po investícii (malo by byť nižšie)
 **Autor**: Implementované Január 2026  
 **Verzia**: 1.0  
 **Status**: ✅ Kompletné a funkčné
+
+---
+
+## Integrácia s Achievements & Perks (Jan 23, 2026)
+
+- Achievement `first_thousand` (Prvá tisícka): cieľ 1000 krokov (TOTAL). Po splnení sa odošle `achievementCompleted` a zobrazí sa 🏆 toast.
+- Perk `acc_capacity_tier1`: +250 k `maxAccumulator`. Odomkne sa len ak platí: `first_thousand.completed === true` a `Strength (S) >= 1`.
+  - Odomykanie nastáva pri prírastku z pedometra aj bez neho (pri investovaní do S), aby hráč nemusel čakať na nové kroky.
+- UI: FITNESS tab zobrazuje panely `TOTAL`, `CURRENT ACCUMULATOR`, `DAILY STEPS` a progres cieľov (`Prvé kroky`, `Prvá tisícka`).

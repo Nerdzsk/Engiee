@@ -196,3 +196,45 @@ export function showPerkUnlockedToast(title = 'Perk odomknutý', description = '
     }, 4000);
 }
 
+// 8. Toast pre denný reset (Daily Steps)
+export function showDailyResetToast(title = 'Nový deň', description = 'Daily Steps boli vynulované') {
+    const el = document.getElementById('daily-notification');
+    const titleEl = document.getElementById('daily-notification-title');
+    const textEl = document.getElementById('daily-notification-text');
+
+    if (!el || !titleEl || !textEl) {
+        console.warn('Daily notification elements not found');
+        return;
+    }
+
+    titleEl.innerText = title;
+    textEl.innerText = description;
+
+    el.classList.remove('hidden', 'slide-out');
+    setTimeout(() => {
+        el.classList.add('slide-out');
+        setTimeout(() => el.classList.add('hidden'), 500);
+    }, 4000);
+}
+
+// 9. Toast pre splnenie achievementu (napr. Prvá tisícka)
+export function showAchievementToast(title = 'Cieľ splnený', description = 'Gratulujeme!') {
+    const el = document.getElementById('achievement-notification');
+    const titleEl = document.getElementById('achievement-notification-title');
+    const textEl = document.getElementById('achievement-notification-text');
+
+    if (!el || !titleEl || !textEl) {
+        console.warn('Achievement notification elements not found');
+        return;
+    }
+
+    titleEl.innerText = title;
+    textEl.innerText = description;
+
+    el.classList.remove('hidden', 'slide-out');
+    setTimeout(() => {
+        el.classList.add('slide-out');
+        setTimeout(() => el.classList.add('hidden'), 500);
+    }, 4000);
+}
+

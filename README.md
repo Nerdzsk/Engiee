@@ -88,3 +88,20 @@ Bezpečnosť
 
 Kontakt
 - Ak chceš pokračovať, napíš mi, ktorú featuru implementovať ďalej (UI, opravy, nové dialógy).
+
+## Aktualizácie — Jan 23, 2026
+
+### Nové Achievementy a Perky
+- Achievement `first_thousand` (Prvá tisícka): cieľ 1000 krokov (TOTAL). Progres sa počíta ako `min(totalPedometerEnergy, target)`. Po splnení sa vyvolá špecifická udalosť `achievementCompleted` pre toast.
+- Perk `acc_capacity_tier1`: trvalé `+250` k `maxAccumulator`. Odomkne sa len vtedy, ak sú splnené OBE podmienky: `first_thousand.completed === true` a `Strength (S) >= 1`. Odomykanie funguje pri pedometer update aj priamo po investovaní do S.
+
+### Denné kroky (Daily Steps)
+- `dailySteps` sleduje dnešný prírastok krokov; resetuje sa pri zmene dátumu (polnoc). UI využíva runtime hodnoty z `accumulatorUpdated` eventu a nikdy neznižuje zobrazenú hodnotu staršou JSON hodnotou.
+
+### Nové eventy a toasty
+- `achievementCompleted`: `{ id, title, description }` — používa sa na zobrazenie 🏆 achievement toastu (napr. pri `first_thousand`).
+- `accumulatorUpdated`: rozšírené o `{ dailySteps, dailyStepsDate }` — umožňuje realtime zobrazenie Daily.
+- Pridané toast komponenty v `index.html` + štýly v `css/04-modals.css`: achievement (cyan) a daily reset (zeleno-azúrový).
+
+### UI
+- FITNESS tab zobrazuje tri panely: `TOTAL (Since New Game)`, `CURRENT ACCUMULATOR`, `DAILY STEPS` + sekciu Achievements (`Prvé kroky`, `Prvá tisícka`).

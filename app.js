@@ -7,7 +7,7 @@ import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjec
 import { updateCamera, handleZoom } from './camera.js';
 import { generateItems, animateItems, currentItemsData } from './items.js';
 import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD, showQuestNotification, updateLearningPointsHUD } from './hud.js';
-import { showPerkUnlockedToast } from './hud.js';
+import { showPerkUnlockedToast, showDailyResetToast, showAchievementToast } from './hud.js';
 import { initSkillsUI, toggleSkillsModal } from './skills.js';
 import { initInventoryUI, watchPlayerInventoryUI, toggleInventoryModal, ITEM_DESCRIPTIONS } from './inventory.js';
 import { initKodexUI, toggleKodexModal, unlockKodexEntry, watchPlayerKodexUI } from './kodex.js';
@@ -42,9 +42,9 @@ async function loadPlayerState() {
         
         if (player) {
             robot.energy = player.energy || 200;
-            robot.maxEnergy = player.maxEnergy || 200;
+            robot.maxEnergy = player.maxEnergy ?? 200;
             robot.accumulator = player.accumulator || 0;
-            robot.maxAccumulator = player.maxAccumulator || 1000;
+            robot.maxAccumulator = player.maxAccumulator ?? 1000;
             robot.totalPedometerEnergy = player.totalPedometerEnergy || 0;
             robot.dailySteps = player.dailySteps || 0;
             robot.dailyStepsDate = player.dailyStepsDate || null;
@@ -472,6 +472,7 @@ function initGame() {
                         dailyStepsDate: robot.dailyStepsDate
                     }
                 }));
+                try { showDailyResetToast('Nový deň', 'Daily Steps boli vynulované'); } catch (_) {}
                 console.log('[Pedometer] Daily steps reset for new day:', todayStr);
             }
         }, 60000); // kontrola raz za minútu
@@ -493,6 +494,16 @@ function initGame() {
         robot.maxLearningPoints = maxLP;
         updateLearningPointsHUD(lp, maxLP);
         console.log(`[Learning Points] Aktualizované: ${lp} / ${maxLP}`);
+    });
+
+    // --- ACHIEVEMENT COMPLETED LISTENER ---
+    window.addEventListener('achievementCompleted', (event) => {
+        const { id, title, description } = event.detail || {};
+        if (id === 'first_thousand') {
+            try {
+                showAchievementToast(title || 'Cieľ splnený', description || 'Dosiahol si 1000 krokov (TOTAL)');
+            } catch (_) {}
+        }
     });
 
     // --- ENERGY MAX CHANGE LISTENER (napr. po odomknutí perku) ---
@@ -856,7 +867,7 @@ function animate() {
         updateEnergyHUD(robot.energy, robot.maxEnergy);
     }
     // Realtime update HUD accumulator (akumulátor)
-    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator || 100);
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator ?? 1000);
 
     if (doorMixers) doorMixers.forEach(mixer => mixer.update(delta));
     updateMovement(robot);

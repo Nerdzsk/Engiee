@@ -356,6 +356,13 @@ btn.addEventListener('click', async () => {
 
 - LP systém je **kompletne oddelený** od ACC systému
 - Používa rovnakú exponenciálnu formulu pre levely: `100 * (1.5 ^ (level-1))`
-- Max capacity: **5000 LP** (rovnako ako ACC má 1000)
+- Max capacity: **5000 LP** (ACC kapacita sa číta z `robot.maxAccumulator` – číslo nikdy nehardcoduj)
 - Farba fialová (#c864ff) bola zvolená pre kontrast s cyan (ACC) a green (Energy)
 - Grid layout (5 stĺpcov) zabezpečuje, že všetko sa zmestí na obrazovku bez scrollovania
+
+---
+
+## Aktualizácie — Jan 23, 2026
+
+- Pre jednotnosť UI boli pridané toasty: `achievementCompleted` (🏆) a `daily reset` (📅). LP systém nimi nie je priamo ovplyvnený, ale `skills.js` a `hud.js` ich zobrazujú v rámci rovnakého modalu.
+- Event `accumulatorUpdated` bol rozšírený o `{ dailySteps, dailyStepsDate }` pre FITNESS tab; LP tab ostáva nezmenený.

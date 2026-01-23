@@ -112,9 +112,13 @@ async function loadPlayerState() {
     
     if (player) {
         robot.energy = player.energy || 200;
-        robot.maxEnergy = player.maxEnergy || 200;
+        // Max kapacitu batérie nehardcoduj v textoch. Načítaj zo save,
+        // fallback default je centralizovaný (aktuálne 200).
+        robot.maxEnergy = player.maxEnergy ?? 200;
         robot.accumulator = player.accumulator || 0;
-        robot.maxAccumulator = player.maxAccumulator || 10000;
+        // Max kapacitu nikdy nehardcoduj. Použi hodnotu zo save
+        // a fallback drž v jedinom mieste (aktuálne 1000).
+        robot.maxAccumulator = player.maxAccumulator ?? 1000;
         
         updateEnergyHUD(robot.energy, robot.maxEnergy);
         updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
@@ -317,9 +321,9 @@ const response = await fetch('/save-json', {
 {
   "playerId": "robot1",
   "energy": 200,
-  "maxEnergy": 200,
+  "maxEnergy": 200, // zobrazovanie v UI musí používať `robot.maxEnergy`
   "accumulator": 0,
-  "maxAccumulator": 10000,
+    "maxAccumulator": 1000, // nepoužívaj číslo v logike/texte napevno – čítaj z player.maxAccumulator
   "level": 1,
   "xp": 0,
   "hasSeenIntro": false,
@@ -335,7 +339,7 @@ const response = await fetch('/save-json', {
 ### Kritické flagy
 - **hasSeenIntro**: `false` = zobraz intro dialog, `true` = skip
 - **quests.active**: Array aktívnych questov (zobrazí sa v quest book)
-- **accumulator**: Energia z pedometra (capacity 10000, nie 100!)
+- **accumulator**: Energia z pedometra (kapacita = `maxAccumulator`, číslo nehardcoduj)
 
 ### Reset pattern
 ```javascript
@@ -445,7 +449,7 @@ console.log('[Quest] Quest started:', questId);
 2. **Video môže blokovať scénu**: Vždy cleanup `video.src = ''`
 3. **reload(true) nefunguje**: Použi `window.location.href` s timestamp
 4. **Počkaj na disk write**: 500ms delay pred reloadom po save
-5. **Capacity ACC je 10000**: Nie 100 (časté chyby)
+5. **Capacity ACC čítaj z `robot.maxAccumulator`**: číslo nikdy nehardcoduj
 6. **Dispatch events po zmene**: UI sa aktualizuje automaticky
 7. **Callback pattern pre dialógy**: Spúšťaj questy v callback, nie pred
 8. **Global exports len keď treba**: `window.` len pre NEW GAME a debug
