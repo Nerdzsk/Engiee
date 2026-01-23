@@ -13,9 +13,9 @@ Learning Points (LP) je **druhá mena** v hre, oddelená od Accumulator Energy (
 
 | Mena | Zdroj | Použitie | Skills |
 |------|-------|----------|--------|
-| **ACC (Accumulator)** | Pedometer (kroky z mobilu) | Fyzické vlastnosti | Strength (S), Endurance (E) |
-| **LP (Learning Points)** | Quest rewards | Mentálne vlastnosti | Intelligence (I), Perception (P), Charisma (C) |
-| **LUCK Points** | *(Budúcnosť: Rewarded Ads)* | Špeciálne vlastnosti | Agility (A), Luck (L) |
+| **ACC (Accumulator)** | Pedometer (kroky z mobilu) | Fyzické vlastnosti | Strength (S), Endurance (E), Agility (A) |
+| **LP (Learning Points)** | Quest rewards, Academy videos | Mentálne vlastnosti | Intelligence (I), Perception (P), Charisma (C) |
+| **LUCK Points** | *(Budúcnosť: Rewarded Ads)* | Špeciálne vlastnosti | Luck (L) |
 
 ---
 
@@ -50,6 +50,33 @@ Každý quest má `learningPoints` field v rewards:
 - `quest_where_am_i`: **50 LP**
 - `quest_broken_charger`: **20 LP**
 - `quest_broken_door`: **15 LP**
+
+### 2.5. Academy System (YouTube Videos)
+
+Od Jan 23, 2026 - LP možno získať aj sledovaním tutoriálových videí:
+
+**Mechanika:**
+- Každých **10 sekúnd** sledovania = **1 LP**
+- Playtime tracking v 1-sekundových intervaloch
+- YouTube IFrame API integrácia
+- Progress persistácia v `player_quests.json`
+
+**Súbory:**
+- `academy.js` (600+ lines) - kompletný modul
+- `academy_videos.json` - video knižnica
+- Toast notifikácie (+1 LP Earned!)
+- Session statistics UI (live counters)
+
+**Video struktura:**
+```json
+{
+  "id": "video_001",
+  "youtubeId": "AO13fuu-_dk",
+  "title": "Getting Started",
+  "lpPerInterval": 1,
+  "intervalSeconds": 10
+}
+```
 
 ### 3. Backend (database.js)
 
@@ -190,6 +217,13 @@ export function updateLearningPointsHUD(lp, maxLP) {
 
 ### 8. Skills UI (skills.js)
 
+#### Skill Modal Tabs (5 tabů)
+1. **⚡ SPECIAL ATTRIBUTES** - Investment do skills (S,P,E,C,I,A,L)
+2. **🎯 PERKS** - Placeholder pre budúce perky
+3. **💪 FITNESS** - Pedometer tracking
+4. **🎓 LEARNING POINTS** - LP panel a info
+5. **🎬 ACADEMY** - YouTube video learning system
+
 #### LP Panel
 ```javascript
 const lpPanel = document.createElement('div');
@@ -285,10 +319,18 @@ btn.addEventListener('click', async () => {
 ```
 
 ### Skill Cards
-- **Padding**: 12px
-- **Font sizes**: Key 28px, Name 12px, Desc 9px, Level 20px
-- **Progress bar**: 16px height
-- **Hover effect**: `translateY(-4px) scale(1.03)` + `z-index: 100`
+- **Padding**: 16px (upgraded from 12px)
+- **Font sizes**: 
+  - SPECIAL key: **48px** (upgraded from 28px)
+  - Skill name: **16px** (upgraded from 12px)
+  - Description: **13px** (upgraded from 9px)
+  - Level badge: **28px** (upgraded from 20px)
+  - Progress texts: **13px**
+  - Input field: **15px**
+  - Buttons: **13px**
+- **Progress bar**: 24px height (upgraded from 16px)
+- **Layout**: Inline investment controls (Input + INVEST + ALL v jednom riadku)
+- **Color coding**: ACC skills=modrá (#00d4ff), LP skills=fialová (#c864ff)
 
 ---
 
@@ -301,7 +343,8 @@ btn.addEventListener('click', async () => {
 | LP Panel Border | Bright Purple | `#c864ff` |
 | LP Text | White | `#ffffff` |
 | LP Label | Purple | `#c864ff` |
-| Skills (I,P,C) Border | Cyan | `#00d4ff` |
+| **LP Skills (I,P,C) Card** | **Purple** | **`#c864ff`** |
+| **ACC Skills (S,E,A) Card** | **Cyan** | **`#00d4ff`** |
 
 ---
 
@@ -312,11 +355,15 @@ btn.addEventListener('click', async () => {
 ✅ LP panel zobrazuje správne hodnoty  
 ✅ I, P, C skills majú LP input fieldy  
 ✅ INVEST button investuje z LP (nie z ACC)  
-✅ INVEST ALL button investuje všetky LP  
+✅ INVEST ALL button investuje všetky LP (skrátený na "ALL")  
 ✅ Level-up notification pri dosiahnutí levelu  
+✅ **Academy tab** - YouTube video playback  
+✅ **Playtime tracking** - 10 sekúnd = 1 LP  
+✅ **Color-coded skills** - ACC modrá, LP fialová  
+✅ **UI improvements** - väčšie texty, inline controls  
 ✅ Skills modal bez scrollbars  
-✅ Hover effect na kartách funguje správne  
-✅ Locked skills (A, L) zobrazujú zámok  
+✅ **Agility (A)** presunnutý na ACC skills (bolo locked)  
+✅ Locked skills (L) zobrazujú zámok  
 
 ---
 
@@ -324,7 +371,7 @@ btn.addEventListener('click', async () => {
 
 ### 1. LUCK Points System (Rewarded Ads)
 - **Zdroj**: AdMob rewarded video ads v mobile app
-- **Použitie**: Investovanie do Agility (A) a Luck (L)
+- **Použitie**: Investovanie do Luck (L) - Agility je už ACC skill
 - **Technológia**: Google AdMob SDK + Firebase
 - **Potenciálny príjem**: $2-$10 CPM (za 1000 zobrazení)
 
@@ -342,27 +389,83 @@ btn.addEventListener('click', async () => {
 
 - `player_quests.json` - Player data (learningPoints field)
 - `quests.json` - Quest rewards (learningPoints)
-- `database.js` - Backend logic (investSkillEnergyFromLP, completeQuest)
-- `app.js` - Robot objekt, event listeners
+- `academy.js` - YouTube video learning system (600+ lines)
+- `academy_videos.json` - Video library definition
+- `database.js` - Backend logic (investSkillEnergyFromLP, completeQuest, level formulas)
+- `app.js` - Robot objekt, event listeners, academy init
 - `hud.js` - updateLearningPointsHUD()
-- `skills.js` - Skills modal UI, investment logic
-- `index.html` - LP orb HTML
+- `skills.js` - Skills modal UI (5 tabs), investment logic, color coding
+- `index.html` - LP orb HTML, skills modal tabs
 - `css/02-energy-orb.css` - LP orb styling
-- `css/04-modals.css` - Skills modal, LP panel styling
+- `css/04-modals.css` - Skills modal, LP panel, Academy UI, skill card colors (2957 lines)
 
 ---
 
 ## Poznámky
 
 - LP systém je **kompletne oddelený** od ACC systému
-- Používa rovnakú exponenciálnu formulu pre levely: `100 * (1.5 ^ (level-1))`
+- **Nový level vzorec (Jan 23, 2026)**: `XP(L) = BASE × L^(1+0.09×L)`
+  - ACC skills (S,E,A): BASE = 1000 EP
+  - LP skills (I,P,C): BASE = 100 LP
 - Max capacity: **5000 LP** (ACC kapacita sa číta z `robot.maxAccumulator` – číslo nikdy nehardcoduj)
 - Farba fialová (#c864ff) bola zvolená pre kontrast s cyan (ACC) a green (Energy)
 - Grid layout (5 stĺpcov) zabezpečuje, že všetko sa zmestí na obrazovku bez scrollovania
+- **Academy system** umožňuje zarábať LP sledovaním YouTube videí (10s = 1LP)
+- **Agility skill** bol presunnutý z LUCK do ACC kategórie (Jan 23, 2026)
 
 ---
 
 ## Aktualizácie — Jan 23, 2026
 
-- Pre jednotnosť UI boli pridané toasty: `achievementCompleted` (🏆) a `daily reset` (📅). LP systém nimi nie je priamo ovplyvnený, ale `skills.js` a `hud.js` ich zobrazujú v rámci rovnakého modalu.
-- Event `accumulatorUpdated` bol rozšírený o `{ dailySteps, dailyStepsDate }` pre FITNESS tab; LP tab ostáva nezmenený.
+### Academy System (NEW)
+- Kompletný YouTube video learning systém
+- Playtime tracking s 1-sekundovým intervalom
+- LP rewards: 10 sekúnd sledovania = 1 LP
+- Session statistics UI (live counters)
+- Toast notifications (+1 LP Earned!)
+- Video progress persistácia v `player_quests.json`
+- Debug commands: `academyStats()`, `resetAcademyProgress(videoId)`
+
+### Level System Overhaul
+- **Nový vzorec**: `XP(L) = BASE × L^(1+0.09×L)` (namiesto `100 * 1.5^(L-1)`)
+- **Konfigurovateľné base hodnoty**:
+  - `ACC_SKILL_BASE_ENERGY = 1000` (S, E, A)
+  - `LP_SKILL_BASE_ENERGY = 100` (I, P, C)
+- Prvý level teraz vyžaduje 1000 EP (ACC) alebo 100 LP
+- Funkcie aktualizované s `skillKey` parametrom:
+  - `calculateSkillEnergyRequired(level, skillKey)`
+  - `calculateSkillLevel(investedEnergy, skillKey)`
+  - `calculateTotalEnergyForLevel(targetLevel, skillKey)`
+
+### Skills Modal UI Improvements
+- **Väčšie fonty** pre lepšiu čitateľnosť:
+  - SPECIAL key: 48px (bolo 28px)
+  - Skill name: 16px (bolo 12px)
+  - Description: 13px (bolo 9px)
+  - Level badge: 28px (bolo 20px)
+- **Color coding** podľa energie type:
+  - ACC skills (S,E,A): Modrá (#00d4ff)
+  - LP skills (I,P,C): Fialová (#c864ff)
+  - Locked (L): Šedá
+- **Inline investment controls**: Input + INVEST + ALL v jednom riadku
+- Input pole: 65px wide (kompaktné)
+- "INVEST ALL" skrátené na "ALL"
+- Odstránená hláška "🔍 Klikni pre detaily"
+- Lepší spacing (gap 15px medzi Progress a EP needed)
+- Vycentrované elementy v kartách
+
+### Skills System Changes
+- **Agility (A)** presunnutý z locked na ACC-based skills
+- Validné ACC skills: `['S', 'E', 'A']` (bolo `['S', 'E']`)
+- LP/EP rozlíšenie v UI textoch ("150 LP needed" vs "1000 EP needed")
+
+### Technical Changes
+- Event `learningPointsUpdated` podporuje dva formáty:
+  - `{lp, maxLP}` (academy.js)
+  - `{learningPoints, maxLearningPoints}` (database.js)
+- 5-tab system v Skills modal:
+  - ⚡ SPECIAL ATTRIBUTES
+  - 🎯 PERKS
+  - 💪 FITNESS
+  - 🎓 LEARNING POINTS (NEW)
+  - 🎬 ACADEMY (NEW)

@@ -557,6 +557,8 @@ export async function resetGame(playerId) {
         player.totalPedometerEnergy = 0;  // Reset celkovej energie z pedometra
         player.dailySteps = 0;            // Reset daily steps
         player.dailyStepsDate = new Date().toISOString().substring(0, 10);
+        player.learningPoints = 0;        // Reset LP
+        player.maxLearningPoints = 5000;  // Reset max LP
         player.level = 1;
         player.xp = 0;
         player.skillPoints = 0;
@@ -605,6 +607,11 @@ export async function resetGame(playerId) {
         ];
         // Reset perks
         player.perks = [];
+        
+        // Reset academy progress
+        player.academy = {
+            videos: {}
+        };
         
         // Ulož lokálny JSON
         if (window.saveLocalJson) {
@@ -708,25 +715,52 @@ export async function getSkills(playerId) {
 // ============================================================
 // SKILL SYSTEM - Accumulator Investment Based
 // ============================================================
+// SKILLS LEVELING SYSTEM - Energy Calculation
+// ============================================================
+
+// Base energy values for first level
+export const ACC_SKILL_BASE_ENERGY = 1000;  // S, E, A skills (from Accumulator)
+export const LP_SKILL_BASE_ENERGY = 100;    // I, P, C skills (from Learning Points)
+
+/**
+ * Určí, či je skill typu ACC alebo LP
+ * @param {string} skillKey - Kľúč skillu (S, P, E, C, I, A, L)
+ * @returns {string} - 'ACC' alebo 'LP'
+ */
+function getSkillType(skillKey) {
+    const accSkills = ['S', 'E', 'A'];
+    return accSkills.includes(skillKey) ? 'ACC' : 'LP';
+}
 
 /**
  * Vypočíta koľko energie je potrebné na dosiahnutie určitého levelu
- * Exponenciálny rast: level 1 = 100, level 2 = 250, level 3 = 500...
- * Formula: energyRequired = 100 * (1.5 ^ (level - 1))
+ * Nový vzorec: XP(L) = BASE * L^(1 + 0.09*L)
+ * - ACC skills (S,E,A): BASE = 1000
+ * - LP skills (I,P,C): BASE = 100
  * @param {number} level - Cieľový level (1, 2, 3...)
+ * @param {string} skillKey - Kľúč skillu (S, P, E, C, I, A, L) - optional
  * @returns {number} - Potrebná energia na dosiahnutie tohto levelu
  */
-export function calculateSkillEnergyRequired(level) {
+export function calculateSkillEnergyRequired(level, skillKey = 'S') {
     if (level <= 0) return 0;
-    return Math.floor(100 * Math.pow(1.5, level - 1));
+    
+    const skillType = getSkillType(skillKey);
+    const baseEnergy = skillType === 'ACC' ? ACC_SKILL_BASE_ENERGY : LP_SKILL_BASE_ENERGY;
+    
+    // Formula: XP(L) = BASE * L^(1 + 0.09*L)
+    const exponent = 1 + (0.09 * level);
+    const energyRequired = baseEnergy * Math.pow(level, exponent);
+    
+    return Math.floor(energyRequired);
 }
 
 /**
  * Vypočíta aktuálny level na základe investovanej energie
  * @param {number} investedEnergy - Celková investovaná energia do skillu
+ * @param {string} skillKey - Kľúč skillu (S, P, E, C, I, A, L) - optional
  * @returns {number} - Aktuálny level skillu
  */
-export function calculateSkillLevel(investedEnergy) {
+export function calculateSkillLevel(investedEnergy, skillKey = 'S') {
     if (investedEnergy <= 0) return 0;
     
     let level = 0;
@@ -734,7 +768,7 @@ export function calculateSkillLevel(investedEnergy) {
     
     while (totalRequired <= investedEnergy) {
         level++;
-        totalRequired += calculateSkillEnergyRequired(level);
+        totalRequired += calculateSkillEnergyRequired(level, skillKey);
     }
     
     return level - 1; // Vráti posledný dokončený level
@@ -743,12 +777,13 @@ export function calculateSkillLevel(investedEnergy) {
 /**
  * Vypočíta celkovú energiu potrebnú na dosiahnutie levelu (suma všetkých predošlých levelov)
  * @param {number} targetLevel - Cieľový level
+ * @param {string} skillKey - Kľúč skillu (S, P, E, C, I, A, L) - optional
  * @returns {number} - Celková energia potrebná
  */
-export function calculateTotalEnergyForLevel(targetLevel) {
+export function calculateTotalEnergyForLevel(targetLevel, skillKey = 'S') {
     let total = 0;
     for (let i = 1; i <= targetLevel; i++) {
-        total += calculateSkillEnergyRequired(i);
+        total += calculateSkillEnergyRequired(i, skillKey);
     }
     return total;
 }
@@ -762,7 +797,7 @@ export function calculateTotalEnergyForLevel(targetLevel) {
  * @returns {object} - { success, newLevel, remainingAcc, message }
  */
 export async function investSkillEnergy(playerId, skillKey, amount, robotObj) {
-    const validStats = ['S', 'E'];  // Len S a E z ACC
+    const validStats = ['S', 'E', 'A'];  // S, E, A z ACC
     if (!validStats.includes(skillKey)) {
         return { success: false, message: 'Tento skill sa nemôže investovať z ACC' };
     }
@@ -798,7 +833,7 @@ export async function investSkillEnergy(playerId, skillKey, amount, robotObj) {
         skill.investedEnergy = (skill.investedEnergy || 0) + amount;
         
         // Prepočítaj level
-        skill.level = calculateSkillLevel(skill.investedEnergy);
+        skill.level = calculateSkillLevel(skill.investedEnergy, skillKey);
         const newLevel = skill.level;
         
         // Zníž accumulator
@@ -926,7 +961,7 @@ export async function investSkillEnergyFromLP(playerId, skillKey, amount, robotO
         skill.investedEnergy = (skill.investedEnergy || 0) + amount;
         
         // Prepočítaj level
-        skill.level = calculateSkillLevel(skill.investedEnergy);
+        skill.level = calculateSkillLevel(skill.investedEnergy, skillKey);
         const newLevel = skill.level;
         
         // Zníž Learning Points

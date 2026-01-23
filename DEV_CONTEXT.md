@@ -32,7 +32,8 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 - `hud-tiers.js` (96 lines) — HUD tier management system (Rusted → Legendary)
 - `angie.js` (128 lines) — ENGEE AI dialogue system, typewriter efekt, avatar management (video/image)
 - `dialogues.js` — knižnica rozhovorov s skill requirement checks
-- `skills.js` (663 lines) — SPECIAL skill tree UI, ACC/LP investment system, skill detail modals
+- `skills.js` (1111 lines) — SPECIAL skill tree UI (5 tabs), ACC/LP investment system, color-coded cards, inline controls
+- `academy.js` (600+ lines) — YouTube IFrame API integration, playtime tracking (10s = 1LP), video progress persistence
 - `inventory.js` (197 lines) — inventár modal s tab system, item usage
 - `kodex.js` (255 lines) — kodex entries (miesta, technológie, postavy)
 - `quests.js` (254 lines) — quest log UI, main/side/completed tabs, LP rewards
@@ -41,12 +42,19 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 ### 📁 Mobile & Integration
 - `pedometer.js` — Cordova pedometer integrácia, background mode, step buffer synchronizácia s Firestore
 
+### 📂 Data Files (JSON)
+- `player_quests.json` — player state (quests, LP, ACC, skills, academy progress)
+- `quests.json` — quest definitions with LP rewards
+- `academy_videos.json` — YouTube video library (id, youtubeId, title, lpPerInterval)
+- `items.json` — item definitions
+- `rooms.json` — room data
+
 ### 📂 CSS Modules (Modularizované)
 - `00-root.css` — CSS variables, HUD tier anchor points, global farby
 - `01-base.css` (162 lines) — HUD frame layout, grid system, tier-specific positioning
 - `02-energy-orb.css` (368 lines) — Energy, Accumulator & Learning Points orb styling, liquid fill animations, glow efekty
 - `03-buttons.css` — HUD button styling, sci-fi dizajn
-- `04-modals.css` (2045 lines) — Modal windows (skills, inventory, kodex, quests, levelup), ACC/LP panels, skill investment grid
+- `04-modals.css` (2957 lines) — Modal windows (skills, inventory, kodex, quests, levelup, academy), ACC/LP panels, skill investment grid, color coding
 - `05-responsive.css` — Mobile & tablet breakpoints
 - `06-angie.css` — ENGEE AI interface, dialogue box, choice buttons
 - `07-game-menu.css` — Game menu (NEW GAME, SAVE, LOAD, SETTINGS)
@@ -98,11 +106,13 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 
 **Skills (SPECIAL System):**
 - `getSkills(playerId)` - Fetch skills data
-- `investSkillEnergy(playerId, skillKey, amount, robotObj)` - Invest ACC into S, E
+- `investSkillEnergy(playerId, skillKey, amount, robotObj)` - Invest ACC into S, E, A
 - `investSkillEnergyFromLP(playerId, skillKey, amount, robotObj)` - Invest LP into I, P, C
-- `calculateSkillLevel(investedEnergy)` - Calculate level from energy
-- `calculateSkillEnergyRequired(level)` - Formula: 100 * (1.5 ^ (level-1))
-- `calculateTotalEnergyForLevel(targetLevel)` - Cumulative energy
+- `calculateSkillLevel(investedEnergy, skillKey)` - Calculate level from energy (NEW: skillKey param)
+- `calculateSkillEnergyRequired(level, skillKey)` - Formula: XP(L) = BASE × L^(1+0.09×L) (NEW formula Jan 23, 2026)
+- `calculateTotalEnergyForLevel(targetLevel, skillKey)` - Cumulative energy (NEW: skillKey param)
+- `ACC_SKILL_BASE_ENERGY` - Exported constant: 1000 EP (S, E, A)
+- `LP_SKILL_BASE_ENERGY` - Exported constant: 100 LP (I, P, C)
 - `allocateSkillPoint(playerId, statKey)` - DEPRECATED
 - `updateSkill(playerId, statKey, updates)` - DEPRECATED
 - `watchPlayerSkills(playerId, callback)` - Real-time skills
@@ -153,11 +163,32 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 - `initHudTierSystem()` - Initialize tier system
 - `HUD_TIERS` - Enum: RUSTED → LEGENDARY (10 tiers)
 
-### 📁 skills.js (177 lines)
-- `initSkillsUI(playerId)` - Initialize skills modal
+### 📁 skills.js (1111 lines)
+- `initSkillsUI(playerId)` - Initialize skills modal (5 tabs)
 - `toggleSkillsModal()` - Show/hide skills (key: C)
-- `updateSkillsDisplay(data)` - Render skill cards + perks
-- Event handlers for skill point allocation
+- `updateSkillsDisplay(data)` - Render skill cards with color coding
+- `renderSpecialTab()` - SPECIAL ATTRIBUTES with ACC/LP panels
+- `renderPerksTab()` - Perks placeholder
+- `renderFitnessTab()` - Pedometer stats
+- `renderLearningTab()` - Learning Points info
+- `renderAcademyTab()` - Delegated to academy.js
+- Tab system: ⚡SPECIAL, 🎯PERKS, 💪FITNESS, 🎓LEARNING, 🎬ACADEMY
+- Event handlers for skill investment (ACC & LP)
+- Color-coded cards: ACC=blue (#00d4ff), LP=purple (#c864ff)
+- Inline investment controls (Input + INVEST + ALL)
+
+### 📁 academy.js (600+ lines) **NEW - Jan 23, 2026**
+- `initAcademyUI(playerId)` - Initialize YouTube video system
+- `renderAcademyTab(content)` - Render video library UI
+- `loadYouTubeAPI()` - Load IFrame API script
+- `createYouTubePlayer(videoId, youtubeId)` - Create player instance
+- `startPlaytimeTracking(videoId)` - Track watch time (1s interval)
+- `awardLPFromVideo(videoId, amount)` - Award LP (10s = 1LP)
+- `saveVideoProgress(videoId)` - Persist to player_quests.json
+- `academyStats()` - Debug: Show all video stats
+- `resetAcademyProgress(videoId)` - Debug: Reset video progress
+- Toast notifications for LP rewards (+1 LP Earned!)
+- Session statistics UI with live counters
 
 ### 📁 inventory.js (197 lines)
 - `initInventoryUI()` - Initialize inventory modal

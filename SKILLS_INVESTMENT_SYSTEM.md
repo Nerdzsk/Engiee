@@ -16,20 +16,32 @@ Nový systém pre SPECIAL skills založený na **priamom investovaní energie z 
 ## Exponenciálna formula
 
 ### Energia potrebná na level
+**Nový vzorec (Jan 23, 2026):**
 ```javascript
-energyRequired(level) = 100 * (1.5 ^ (level - 1))
+XP(L) = BASE × L^(1 + 0.09×L)
 ```
 
-### Príklady:
-| Level | Energia na level | Celková investícia |
+**Base hodnoty:**
+- **ACC skills** (S, E, A): `ACC_SKILL_BASE_ENERGY = 1000 EP`
+- **LP skills** (I, P, C): `LP_SKILL_BASE_ENERGY = 100 LP`
+
+### Príklady pre ACC skills (BASE=1000):
+| Level | Energia na level | Celková investičia |
 |-------|------------------|-------------------|
-| 1     | 100 EP          | 100 EP            |
-| 2     | 150 EP          | 250 EP            |
-| 3     | 225 EP          | 475 EP            |
-| 4     | 338 EP          | 813 EP            |
-| 5     | 506 EP          | 1,319 EP          |
-| 10    | 3,834 EP        | 11,279 EP         |
-| 20    | 1,293,660 EP    | 3,880,975 EP      |
+| 1     | 1,000 EP        | 1,000 EP          |
+| 2     | 2,297 EP        | 3,297 EP          |
+| 3     | 3,923 EP        | 7,220 EP          |
+| 4     | 5,920 EP        | 13,140 EP         |
+| 5     | 8,338 EP        | 21,478 EP         |
+
+### Príklady pre LP skills (BASE=100):
+| Level | Energia na level | Celková investičia |
+|-------|------------------|-------------------|
+| 1     | 100 LP          | 100 LP            |
+| 2     | 230 LP          | 330 LP            |
+| 3     | 392 LP          | 722 LP            |
+| 4     | 592 LP          | 1,314 LP          |
+| 5     | 834 LP          | 2,148 LP          |
 
 ### Prečo exponenciálny rast?
 - Začiatočné levely sú **dostupné** (100-500 EP)

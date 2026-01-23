@@ -207,34 +207,71 @@ export function initSkillsUI(playerId, robotObj) {
     // Načítaj skills pri otvorení
     loadSkillsData();
     
-    // Počúvaj na zmeny v skills
-    window.addEventListener('skillsUpdated', () => {
+    // Počúvaj na zmeny v skills (s malým delayom pre disk write)
+    window.addEventListener('skillsUpdated', async () => {
+        // Počkaj 100ms aby sa JSON súbor stihol zapísať na disk
+        await new Promise(resolve => setTimeout(resolve, 100));
         loadSkillsData();
     });
     
     // Počúvaj na zmeny v accumulator (z pedometra)
     window.addEventListener('accumulatorUpdated', (event) => {
-        if (currentTab === 'fitness' && isSkillsModalOpen) {
-            try {
-                const detail = event.detail || {};
-                if (currentRobotObj) {
-                    if (typeof detail.totalPedometerEnergy === 'number') {
-                        currentRobotObj.totalPedometerEnergy = detail.totalPedometerEnergy;
-                    }
-                    if (typeof detail.dailySteps === 'number') {
-                        const prev = currentRobotObj.dailySteps || 0;
-                        currentRobotObj.dailySteps = Math.max(prev, detail.dailySteps);
-                    }
-                    if (detail.dailyStepsDate) {
-                        currentRobotObj.dailyStepsDate = detail.dailyStepsDate;
-                    }
+        // Aktualizuj robot objekt vždy (aj keď modal nie je otvorený)
+        try {
+            const detail = event.detail || {};
+            if (currentRobotObj) {
+                if (typeof detail.accumulator === 'number') {
+                    currentRobotObj.accumulator = detail.accumulator;
                 }
-            } catch (_) {}
-            loadSkillsData(); // Refresh FITNESS tab pri zmene ACC
+                if (typeof detail.totalPedometerEnergy === 'number') {
+                    currentRobotObj.totalPedometerEnergy = detail.totalPedometerEnergy;
+                }
+                if (typeof detail.dailySteps === 'number') {
+                    const prev = currentRobotObj.dailySteps || 0;
+                    currentRobotObj.dailySteps = Math.max(prev, detail.dailySteps);
+                }
+                if (detail.dailyStepsDate) {
+                    currentRobotObj.dailyStepsDate = detail.dailyStepsDate;
+                }
+            }
+            // Aktualizuj currentSkillsData ak existuje
+            if (currentSkillsData) {
+                currentSkillsData.accumulator = currentRobotObj.accumulator;
+            }
+        } catch (_) {}
+        
+        // Refresh UI ak je modal otvorený (na AKOMKOĽVEK tabe)
+        if (isSkillsModalOpen) {
+            loadSkillsData(); // Refresh celého modalu (buttony sa odisablujú/enablenú)
         }
     });
+    
+    // Počúvaj na zmeny v Learning Points (z Academy alebo Questov)
+    window.addEventListener('learningPointsUpdated', (event) => {
+        // Aktualizuj robot objekt vždy
+        try {
+            const detail = event.detail || {};
+            if (currentRobotObj && typeof detail.learningPoints === 'number') {
+                currentRobotObj.learningPoints = detail.learningPoints;
+            }
+        } catch (_) {}
+        
+        // Refresh UI ak je modal otvorený
+        if (isSkillsModalOpen) {
+            loadSkillsData(); // Refresh LP panelu a LP skill buttonov
+        }
+    });
+    
     // Počúvaj na zmeny v achievements (napr. splnenie cieľa)
-    window.addEventListener('achievementsUpdated', () => {
+    window.addEventListener('achievementsUpdated', (event) => {
+        console.log('[Skills] achievementsUpdated event received', event.detail);
+        // Refresh achievements data aj keď modal nie je otvorený
+        if (event.detail && event.detail.achievements) {
+            if (currentSkillsData) {
+                currentSkillsData.achievements = event.detail.achievements;
+            }
+        }
+        // Ak je otvorený FITNESS tab, refresh UI
         if (currentTab === 'fitness' && isSkillsModalOpen) {
             loadSkillsData();
         }
@@ -385,6 +422,8 @@ async function loadSkillsData() {
             // Aktualizuj robot objekt s hodnotami z JSON
             if (currentRobotObj) {
                 currentRobotObj.totalPedometerEnergy = player.totalPedometerEnergy || 0;
+                currentRobotObj.learningPoints = player.learningPoints || 0;
+                currentRobotObj.maxLearningPoints = player.maxLearningPoints || 5000;
                 const jsonDaily = player.dailySteps || 0;
                 const jsonDate = player.dailyStepsDate || null;
                 const rtDaily = currentRobotObj.dailySteps || 0;
@@ -431,8 +470,13 @@ export function updateSkillsDisplay(data) {
     }
 
     const { skills, accumulator, maxAccumulator, achievements = [], perks = [] } = data;
-    const lp = currentRobotObj ? currentRobotObj.learningPoints : 0;
-    const maxLP = currentRobotObj ? currentRobotObj.maxLearningPoints : 5000;
+    
+    // Fallback na window.robot ak currentRobotObj nie je dostupný
+    const robotRef = currentRobotObj || window.robot;
+    const lp = robotRef ? (robotRef.learningPoints || 0) : 0;
+    const maxLP = robotRef ? (robotRef.maxLearningPoints || 5000) : 5000;
+    
+    console.log('[Skills] LP values:', { lp, maxLP, robotRef });
 
     const content = document.getElementById('skills-panel-content');
     if (!content) return;
@@ -447,6 +491,15 @@ export function updateSkillsDisplay(data) {
         renderPerksTab(content, perks, achievements);
     } else if (currentTab === 'fitness') {
         renderFitnessTab(content, accumulator, maxAccumulator, achievements);
+    } else if (currentTab === 'learning') {
+        renderLearningTab(content, lp, maxLP, skills);
+    } else if (currentTab === 'academy') {
+        // Import a render Academy tab
+        if (window.renderAcademyTab) {
+            window.renderAcademyTab(content);
+        } else {
+            content.innerHTML = '<p style="color: #ff0000;">Academy module not loaded</p>';
+        }
     }
 }
 
@@ -497,13 +550,13 @@ function renderSpecialTab(content, skills, accumulator, maxAccumulator, lp, maxL
         const investedEnergy = skillData.investedEnergy || 0;
         
         // Rozdelenie podľa zdroja energie
-        const canInvestFromAcc = (statKey === 'S' || statKey === 'E');
+        const canInvestFromAcc = (statKey === 'S' || statKey === 'E' || statKey === 'A');
         const canInvestFromLP = (statKey === 'I' || statKey === 'P' || statKey === 'C');
-        const isLocked = (statKey === 'A' || statKey === 'L');
+        const isLocked = (statKey === 'L');
         
         // Vypočítaj energiu na ďalší level
-        const energyForCurrentLevel = calculateTotalEnergyForLevel(currentLevel);
-        const energyForNextLevel = calculateTotalEnergyForLevel(currentLevel + 1);
+        const energyForCurrentLevel = calculateTotalEnergyForLevel(currentLevel, statKey);
+        const energyForNextLevel = calculateTotalEnergyForLevel(currentLevel + 1, statKey);
         const energyNeeded = energyForNextLevel - investedEnergy;
         const progressInCurrentLevel = investedEnergy - energyForCurrentLevel;
         const progressPercent = currentLevel === 0 
@@ -512,7 +565,13 @@ function renderSpecialTab(content, skills, accumulator, maxAccumulator, lp, maxL
 
         const card = document.createElement('div');
         let cardClass = 'skill-investment-card';
-        if (isLocked) cardClass += ' disabled-skill';
+        if (isLocked) {
+            cardClass += ' disabled-skill';
+        } else if (canInvestFromAcc) {
+            cardClass += ' acc-skill';  // Modrá pre S, E, A
+        } else if (canInvestFromLP) {
+            cardClass += ' lp-skill';   // Fialová pre I, P, C
+        }
         card.className = cardClass;
         
         card.innerHTML = `
@@ -524,17 +583,16 @@ function renderSpecialTab(content, skills, accumulator, maxAccumulator, lp, maxL
                 </div>
                 <div class="skill-level">LV ${currentLevel}</div>
             </div>
-            <div class="skill-detail-hint" data-skill="${statKey}">🔍 Klikni pre detaily</div>
             
             <div class="skill-progress-section">
                 <div class="skill-progress-info">
                     <span>Progress to LV ${currentLevel + 1}</span>
-                    <span class="energy-needed">${energyNeeded} EP needed</span>
+                    <span class="energy-needed">${energyNeeded} ${canInvestFromLP ? 'LP' : 'EP'} needed</span>
                 </div>
                 <div class="skill-progress-bar">
                     <div class="skill-progress-fill" style="width: ${Math.min(progressPercent, 100).toFixed(1)}%"></div>
                 </div>
-                <div class="skill-total-invested">Total invested: ${investedEnergy} EP</div>
+                <div class="skill-total-invested">Total invested: ${investedEnergy} ${canInvestFromLP ? 'LP' : 'EP'}</div>
             </div>
             
             ${canInvestFromAcc ? `
@@ -546,15 +604,13 @@ function renderSpecialTab(content, skills, accumulator, maxAccumulator, lp, maxL
                            min="0" 
                            max="${accumulator}" 
                            value="0" 
-                           placeholder="Amount">
-                    <div class="invest-buttons">
-                        <button class="invest-btn" data-stat="${statKey}" ${accumulator <= 0 ? 'disabled' : ''}>
-                            INVEST
-                        </button>
-                        <button class="invest-all-btn" data-stat="${statKey}" ${accumulator <= 0 ? 'disabled' : ''}>
-                            INVEST ALL
-                        </button>
-                    </div>
+                           placeholder="0">
+                    <button class="invest-btn" data-stat="${statKey}" ${accumulator <= 0 ? 'disabled' : ''}>
+                        INVEST
+                    </button>
+                    <button class="invest-all-btn" data-stat="${statKey}" ${accumulator <= 0 ? 'disabled' : ''}>
+                        ALL
+                    </button>
                 </div>
             ` : canInvestFromLP ? `
                 <div class="skill-invest-controls">
@@ -565,15 +621,13 @@ function renderSpecialTab(content, skills, accumulator, maxAccumulator, lp, maxL
                            min="0" 
                            max="${lp}" 
                            value="0" 
-                           placeholder="Amount">
-                    <div class="invest-buttons">
-                        <button class="invest-btn" data-stat="${statKey}" ${lp <= 0 ? 'disabled' : ''}>
-                            INVEST
-                        </button>
-                        <button class="invest-all-btn" data-stat="${statKey}" ${lp <= 0 ? 'disabled' : ''}>
-                            INVEST ALL
-                        </button>
-                    </div>
+                           placeholder="0">
+                    <button class="invest-btn" data-stat="${statKey}" ${lp <= 0 ? 'disabled' : ''}>
+                        INVEST
+                    </button>
+                    <button class="invest-all-btn" data-stat="${statKey}" ${lp <= 0 ? 'disabled' : ''}>
+                        ALL
+                    </button>
                 </div>
             ` : `
                 <div class="skill-locked-message">
@@ -772,6 +826,119 @@ function renderPerksTab(content, perks, achievements) {
 }
 
 /**
+ * renderLearningTab — vykreslí LEARNING POINTS tab
+ */
+function renderLearningTab(content, lp, maxLP, skills) {
+    // === LEARNING POINTS MAIN PANEL ===
+    const lpPanel = document.createElement('div');
+    lpPanel.className = 'learning-panel main-panel';
+    lpPanel.innerHTML = `
+        <div class="lp-info">
+            <div class="lp-icon">🎓</div>
+            <div class="lp-text">
+                <div class="lp-label">LEARNING POINTS (from Quests)</div>
+                <div class="lp-value">${lp} / ${maxLP} LP</div>
+            </div>
+        </div>
+        <div class="lp-bar">
+            <div class="lp-fill" style="width: ${(lp / maxLP * 100).toFixed(1)}%"></div>
+        </div>
+    `;
+
+    // === INFO PANEL ===
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'lp-info-panel';
+    infoPanel.innerHTML = `
+        <h3>📚 Ako získať Learning Points?</h3>
+        <div class="lp-source-list">
+            <div class="lp-source-item">
+                <span class="lp-source-icon">📜</span>
+                <div class="lp-source-text">
+                    <strong>Questy</strong>
+                    <p>Dokončením questov získaš LP ako odmenu. Rôzne questy poskytujú rôzne množstvo LP.</p>
+                </div>
+            </div>
+            <div class="lp-source-item">
+                <span class="lp-source-icon">⭐</span>
+                <div class="lp-source-text">
+                    <strong>Main Quests</strong>
+                    <p>Hlavné questy poskytujú až 50 LP za dokončenie.</p>
+                </div>
+            </div>
+            <div class="lp-source-item">
+                <span class="lp-source-icon">◇</span>
+                <div class="lp-source-text">
+                    <strong>Side Quests</strong>
+                    <p>Vedľajšie questy poskytujú 15-20 LP.</p>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-top: 30px;">💡 Použitie Learning Points</h3>
+        <div class="lp-usage-list">
+            <div class="lp-usage-item">
+                <span class="skill-key">I</span>
+                <div class="lp-usage-text">
+                    <strong>Intelligence (Inteligencia)</strong>
+                    <p>Investuj LP do Intelligence pre lepší výpočtový výkon a vyššiu XP gain.</p>
+                </div>
+            </div>
+            <div class="lp-usage-item">
+                <span class="skill-key">P</span>
+                <div class="lp-usage-text">
+                    <strong>Perception (Vnímanie)</strong>
+                    <p>Investuj LP do Perception pre lepšiu detekciu a skenovanie.</p>
+                </div>
+            </div>
+            <div class="lp-usage-item">
+                <span class="skill-key">C</span>
+                <div class="lp-usage-text">
+                    <strong>Charisma (Charizma)</strong>
+                    <p>Investuj LP do Charisma pre lepšie rewards a dialog možnosti.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lp-tip">
+            💡 <strong>TIP:</strong> Prejdi do SPECIAL ATTRIBUTES tabu a investuj svoje LP do mentálnych schopností!
+        </div>
+    `;
+
+    // === CURRENT SKILLS STATUS (I, P, C) ===
+    const skillsStatus = document.createElement('div');
+    skillsStatus.className = 'lp-skills-status';
+    skillsStatus.innerHTML = '<h3>🎯 Aktuálny stav mentálnych schopností</h3>';
+
+    const skillsGrid = document.createElement('div');
+    skillsGrid.className = 'lp-skills-grid';
+
+    ['I', 'P', 'C'].forEach(statKey => {
+        const skillData = skills[statKey] || { investedEnergy: 0, level: 0 };
+        const currentLevel = skillData.level || 0;
+        const investedEnergy = skillData.investedEnergy || 0;
+
+        const card = document.createElement('div');
+        card.className = 'lp-skill-card';
+        card.innerHTML = `
+            <div class="lp-skill-header">
+                <span class="skill-key-large">${statKey}</span>
+                <span class="lp-skill-level">LV ${currentLevel}</span>
+            </div>
+            <div class="lp-skill-name">${SKILL_NAMES[statKey]}</div>
+            <div class="lp-skill-invested">Investované: ${investedEnergy} LP</div>
+        `;
+        skillsGrid.appendChild(card);
+    });
+
+    skillsStatus.appendChild(skillsGrid);
+
+    // Append všetko
+    content.appendChild(lpPanel);
+    content.appendChild(infoPanel);
+    content.appendChild(skillsStatus);
+}
+
+/**
  * renderFitnessTab — vykreslí FITNESS tab s pedometer štatistikami
  */
 function renderFitnessTab(content, accumulator, maxAccumulator, achievements) {
@@ -788,6 +955,34 @@ function renderFitnessTab(content, accumulator, maxAccumulator, achievements) {
     const totalPedometer = currentRobotObj ? currentRobotObj.totalPedometerEnergy || 0 : 0;
     const dailySteps = currentRobotObj ? currentRobotObj.dailySteps || 0 : 0;
     const dailyDate = currentRobotObj ? (currentRobotObj.dailyStepsDate || '') : '';
+    
+    // === SYNC achievements s totalPedometerEnergy (ak sa neaktualizovali) ===
+    if (Array.isArray(achievements)) {
+        const first = achievements.find(a => a.id === 'first_steps');
+        if (first && !first.completed) {
+            // Ak current je menej ako totalPedometer, aktualizuj
+            const currentVal = first.current || 0;
+            if (currentVal < totalPedometer) {
+                first.current = Math.min(totalPedometer, first.target || 100);
+                if (first.current >= (first.target || 100)) {
+                    first.completed = true;
+                    first.completedAt = new Date().toISOString();
+                }
+            }
+        }
+        const thousand = achievements.find(a => a.id === 'first_thousand');
+        if (thousand && !thousand.completed) {
+            const currentVal = thousand.current || 0;
+            if (currentVal < totalPedometer) {
+                thousand.current = Math.min(totalPedometer, thousand.target || 1000);
+                if (thousand.current >= (thousand.target || 1000)) {
+                    thousand.completed = true;
+                    thousand.completedAt = new Date().toISOString();
+                }
+            }
+        }
+    }
+    
     // === GRID LAYOUT: 3 rovnaké stĺpce v jednom riadku (Total | Current | Daily) ===
     const grid = document.createElement('div');
     grid.className = 'fitness-grid';

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "video_test_1",
+    "youtubeId": "AO13fuu-_dk",
+    "title": "Test Tutorial Video",
+    "description": "Testovací tutoriál pre Academy systém",
+    "category": "tutorial",
+    "lpPerInterval": 1,
+    "intervalSeconds": 10
+  }
+]

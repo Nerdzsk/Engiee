@@ -16,6 +16,7 @@ import { initLevelUpSystem, showLevelUpModal } from './levelup.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { initHudTierSystem, setHudTier, upgradeHudTier, HUD_TIERS } from './hud-tiers.js';
 import { initGameMenu } from './game-menu.js';
+import { initAcademyUI, renderAcademyTab } from './academy.js';
 
 // Globálne premenné pre proximity logiku
 let isRobotInChargerZone = false;
@@ -405,6 +406,10 @@ function initGame() {
         watchPlayerKodexUI("robot1");
         initQuestsUI("robot1");
         initGameMenu(); // Initialize Game Menu (ESC)
+        initAcademyUI("robot1"); // Initialize Academy system
+        
+        // Sprístupni renderAcademyTab globálne pre skills.js
+        window.renderAcademyTab = renderAcademyTab;
         
         // Initialize skills indicator once
         if (!window._skillIndicatorInitialized) {
@@ -489,11 +494,19 @@ function initGame() {
 
     // --- LEARNING POINTS EVENT LISTENER ---
     window.addEventListener('learningPointsUpdated', (event) => {
-        const { lp, maxLP } = event.detail;
-        robot.learningPoints = lp;
-        robot.maxLearningPoints = maxLP;
-        updateLearningPointsHUD(lp, maxLP);
-        console.log(`[Learning Points] Aktualizované: ${lp} / ${maxLP}`);
+        const { learningPoints, maxLearningPoints, lp, maxLP } = event.detail;
+        // Support both formats (academy uses learningPoints, database.js uses lp)
+        const lpValue = learningPoints !== undefined ? learningPoints : lp;
+        const maxLPValue = maxLearningPoints !== undefined ? maxLearningPoints : maxLP;
+        
+        if (lpValue !== undefined) {
+            robot.learningPoints = lpValue;
+        }
+        if (maxLPValue !== undefined) {
+            robot.maxLearningPoints = maxLPValue;
+        }
+        updateLearningPointsHUD(robot.learningPoints, robot.maxLearningPoints);
+        console.log(`[Learning Points] Aktualizované: ${robot.learningPoints} / ${robot.maxLearningPoints}`);
     });
 
     // --- ACHIEVEMENT COMPLETED LISTENER ---
