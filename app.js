@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { ENGEE_DIALOGUES } from './dialogues.js';
 import { speak } from './angie.js';
-import { transferEnergy, markDialogueAsSeen, markIntroAsSeen, performRepairInDB, setupChargerInDB, performChargerRepairInDB, giveXP, startQuest, getQuestData, updateQuestProgress, watchPlayerSkills, fixObjectPositions, addToInventory, watchPedometerSteps } from './database.js';
+import { transferEnergy, markDialogueAsSeen, markIntroAsSeen, performRepairInDB, setupChargerInDB, performChargerRepairInDB, giveXP, startQuest, getQuestData, updateQuestProgress, watchPlayerSkills, fixObjectPositions, addToInventory, watchPedometerSteps, ensureDailyStepsForToday } from './database.js';
 import { setupControls, updateMovement } from './controls.js';
-import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjects } from './world.js';
+import { generateRoom, generateDoors, doorMixers, generateChargers, chargerObjects, replaceChargerModel } from './world.js';
 import { updateCamera, handleZoom } from './camera.js';
 import { generateItems, animateItems, currentItemsData } from './items.js';
-import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD, showQuestNotification } from './hud.js';
+import { triggerSyncFlash, updateEnergyHUD, updateAccumulatorHUD, updateMobileStatusHUD, updateLevelHUD, showQuestNotification, updateLearningPointsHUD } from './hud.js';
+import { showPerkUnlockedToast } from './hud.js';
 import { initSkillsUI, toggleSkillsModal } from './skills.js';
 import { initInventoryUI, watchPlayerInventoryUI, toggleInventoryModal, ITEM_DESCRIPTIONS } from './inventory.js';
 import { initKodexUI, toggleKodexModal, unlockKodexEntry, watchPlayerKodexUI } from './kodex.js';
@@ -21,7 +22,12 @@ let isRobotInChargerZone = false;
 let robot = {
     position: { x: 0, y: 0, z: 0 },
     accumulator: 0,
-    maxAccumulator: 10000,
+    maxAccumulator: 1000,
+    totalPedometerEnergy: 0,
+    dailySteps: 0,
+    dailyStepsDate: null,
+    learningPoints: 0,
+    maxLearningPoints: 5000,
     maxEnergy: 200,
     energy: 200
 };
@@ -38,13 +44,19 @@ async function loadPlayerState() {
             robot.energy = player.energy || 200;
             robot.maxEnergy = player.maxEnergy || 200;
             robot.accumulator = player.accumulator || 0;
-            robot.maxAccumulator = player.maxAccumulator || 10000;
+            robot.maxAccumulator = player.maxAccumulator || 1000;
+            robot.totalPedometerEnergy = player.totalPedometerEnergy || 0;
+            robot.dailySteps = player.dailySteps || 0;
+            robot.dailyStepsDate = player.dailyStepsDate || null;
+            robot.learningPoints = player.learningPoints || 0;
+            robot.maxLearningPoints = player.maxLearningPoints || 5000;
             robot.position.x = player.positionX || 0;
             robot.position.z = player.positionZ || 0;
             
             // Update HUD hneď po načítaní
             updateEnergyHUD(robot.energy, robot.maxEnergy);
             updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+            updateLearningPointsHUD(robot.learningPoints, robot.maxLearningPoints);
         }
     } catch (err) {
         console.error('Failed to load player state:', err);
@@ -146,7 +158,33 @@ window.emptyAccumulator = () => {
     updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
     console.log(`Akumulátor vyprázdnený`);
 };
+// Debug: pridaj kroky do Firebase (odomkne achievement/perk po 100+)
+window.addSteps = async (amount = 100) => {
+    try {
+        const mod = await import('./pedometer.js');
+        await mod.addStepToDatabase('robot1', amount);
+        console.log(`[Debug] Požiadavka na pridanie ${amount} krokov odoslaná do Firebase.`);
+    } catch (e) {
+        console.error('[Debug] addSteps zlyhalo:', e);
+    }
+};
+// Debug funkcie pre skills
+window.testInvestSkill = async (skillKey, amount) => {
+    const { investSkillEnergy } = await import('./database.js');
+    const result = await investSkillEnergy('robot1', skillKey, amount, robot);
+    console.log('Investment result:', result);
+    return result;
+};
 
+window.showSkillsFormula = () => {
+    console.log('=== SKILL ENERGY REQUIREMENTS ===');
+    for (let i = 1; i <= 10; i++) {
+        const { calculateSkillEnergyRequired, calculateTotalEnergyForLevel } = window;
+        const energyForLevel = Math.floor(100 * Math.pow(1.5, i - 1));
+        const totalEnergy = Array.from({length: i}, (_, idx) => Math.floor(100 * Math.pow(1.5, idx))).reduce((a,b) => a+b, 0);
+        console.log(`Level ${i}: ${energyForLevel} EP (Total: ${totalEnergy} EP)`);
+    }
+};
 // (Removed debug HUD)
 
 // END DEBUG HELPERS
@@ -232,6 +270,81 @@ async function getQuestDataLocal(questId) {
  * Ak nie, zobrazí INTRO a spustí hlavný quest "quest_where_am_i".
  * @param {string} playerId - ID hráča (napr. "robot1")
  */
+
+// === BROKEN CHARGER DIALOG & REPAIR ===
+async function showBrokenChargerDialog() {
+    // Kontrola či quest už nie je splnený
+    const fetchNoCache = (url) => fetch(url + '?_=' + Date.now(), { cache: 'no-store' });
+    const players = await fetchNoCache('player_quests.json').then(r => r.json());
+    const player = players.find(p => p.playerId === 'robot1');
+    
+    if (!player) {
+        console.error('[Charger] Player not found!');
+        return;
+    }
+    
+    const activeQuest = player.quests.active.find(q => q.questId === 'quest_broken_charger');
+    const completedQuest = player.quests.completed.find(q => q.questId === 'quest_broken_charger');
+    
+    // Ak je quest splnený, už nedávaj dialóg
+    if (completedQuest || (activeQuest && activeQuest.completed)) {
+        console.log('[Charger] Quest already completed, skipping dialog');
+        return;
+    }
+    
+    const REPAIR_COST = 100;
+    const dialog = ENGEE_DIALOGUES.BROKEN_CHARGER.generate(REPAIR_COST, robot.accumulator);
+    
+    speak(dialog, async () => {
+        // Dialog ukončený - pridaj quest LEN ak ešte neexistuje
+        if (!activeQuest) {
+            const questData = await getQuestDataLocal('quest_broken_charger');
+            if (questData) {
+                await startQuest('robot1', 'quest_broken_charger', questData);
+                showQuestNotification('Oprav pokazenú nabíjaciu stanicu');
+                console.log('[Charger] Quest pridaný do denníka');
+            }
+        } else {
+            console.log('[Charger] Quest už existuje, notifikácia sa nezobrazí');
+        }
+    });
+}
+
+// Handler pre repair event z dialogu
+window.addEventListener('requestChargerRepair', async (event) => {
+    const { cost } = event.detail;
+    
+    // Kontrola či má dostatok energie
+    if (robot.accumulator < cost) {
+        console.error('[Charger] Nedostatok energie v akumulátore');
+        return;
+    }
+    
+    // Odpočítaj energiu
+    robot.accumulator -= cost;
+    updateAccumulatorHUD(robot.accumulator, robot.maxAccumulator);
+    
+    // Oprav charger
+    await performChargerRepairInDB('robot1');
+    
+    // Nahraď broken_charger model za charger.glb
+    if (typeof chargerObjects !== 'undefined' && typeof scene !== 'undefined') {
+        const brokenCharger = chargerObjects.find(obj => obj.userData.isBroken);
+        if (brokenCharger) {
+            console.log('[Charger] Replacing broken model with repaired charger.glb');
+            replaceChargerModel(scene, brokenCharger.userData.id);
+        }
+    }
+    
+    // Update quest progress (obj_1 je na indexe 0)
+    await updateQuestProgress('robot1', 'quest_broken_charger', 0, 1);
+    
+    // Schová prompt
+    isRobotInChargerZone = false;
+    const promptDiv = document.getElementById('interaction-prompt');
+    if (promptDiv) promptDiv.classList.remove('active');
+});
+
 async function checkAndShowIntro(playerId) {
     try {
         // Cache busting helper
@@ -285,7 +398,7 @@ window.checkAndShowIntro = checkAndShowIntro;
 function initGame() {
     // Inicializuj skills panel na prvý krát
     if (!window._skillsPanelInitialized) {
-        initSkillsUI("robot1");
+        initSkillsUI("robot1", robot); // Pridaj robot objekt pre accumulator
         initInventoryUI();
         watchPlayerInventoryUI("robot1");
         initKodexUI();
@@ -335,6 +448,64 @@ function initGame() {
         });
         window._pedometerWatcherInitialized = true;
     }
+
+    // --- DAILY STEPS AUTO-RESET okolo polnoci ---
+    if (!window._dailyStepsWatcherStarted) {
+        // Okamžitá normalizácia po štarte (v prípade otvorenia hry nasledujúci deň)
+        try { ensureDailyStepsForToday('robot1', robot); } catch (_) {}
+
+        const getToday = () => new Date().toISOString().substring(0, 10);
+        window._lastDailyDate = robot.dailyStepsDate || getToday();
+        window._dailyStepsWatcherStarted = true;
+        window._dailyStepsInterval = setInterval(async () => {
+            const todayStr = getToday();
+            if (window._lastDailyDate !== todayStr) {
+                window._lastDailyDate = todayStr;
+                robot.dailySteps = 0;
+                robot.dailyStepsDate = todayStr;
+                try { await ensureDailyStepsForToday('robot1', robot); } catch (_) {}
+                window.dispatchEvent(new CustomEvent('accumulatorUpdated', {
+                    detail: {
+                        accumulator: robot.accumulator,
+                        totalPedometerEnergy: robot.totalPedometerEnergy,
+                        dailySteps: robot.dailySteps,
+                        dailyStepsDate: robot.dailyStepsDate
+                    }
+                }));
+                console.log('[Pedometer] Daily steps reset for new day:', todayStr);
+            }
+        }, 60000); // kontrola raz za minútu
+    }
+
+    // --- PERK UNLOCK TOAST LISTENER ---
+    window.addEventListener('perksUpdated', (event) => {
+        const { perkId, perks } = event.detail || {};
+        const p = Array.isArray(perks) ? perks.find(x => x.id === perkId) : null;
+        if (p && p.applied) {
+            showPerkUnlockedToast(p.title || 'Perk odomknutý', p.description || 'Nová schopnosť aktivovaná');
+        }
+    });
+
+    // --- LEARNING POINTS EVENT LISTENER ---
+    window.addEventListener('learningPointsUpdated', (event) => {
+        const { lp, maxLP } = event.detail;
+        robot.learningPoints = lp;
+        robot.maxLearningPoints = maxLP;
+        updateLearningPointsHUD(lp, maxLP);
+        console.log(`[Learning Points] Aktualizované: ${lp} / ${maxLP}`);
+    });
+
+    // --- ENERGY MAX CHANGE LISTENER (napr. po odomknutí perku) ---
+    window.addEventListener('energyMaxChanged', (event) => {
+        const { maxEnergy } = event.detail || {};
+        if (Number.isFinite(maxEnergy) && maxEnergy > 0) {
+            robot.maxEnergy = maxEnergy;
+            // Zabezpeč, že current energia nepresahuje nový max
+            robot.energy = Math.min(robot.energy || 0, robot.maxEnergy);
+            updateEnergyHUD(robot.energy, robot.maxEnergy);
+            console.log(`[Energy] Max kapacita aktualizovaná na ${robot.maxEnergy}`);
+        }
+    });
 
     // --- ROOM LOADING AND RENDERING ---
 
@@ -443,33 +614,6 @@ window.addEventListener('requestRepair', async (e) => {
     }
 });
 
-window.addEventListener('requestChargerRepair', async (e) => {
-    const { cost } = e.detail;
-    if (robot.accumulator >= cost) {
-        const newAccumulator = robot.accumulator - cost;
-        const success = await performChargerRepairInDB("robot1", "room1", "charger_1", newAccumulator);
-        if (success) {
-                // XP za opravu nabíjačky
-                const xpResult = await giveXP("robot1", 50, "repair_charger");
-                if (xpResult.leveled) {
-                    showLevelUpModal(xpResult.newLevel, xpResult.skillPointsGained);
-                }
-                
-                // Update quest progress - "Oprav nabijaciu stanicu"
-                try {
-                    await updateQuestProgress("robot1", "quest_where_am_i", 0, 1);
-                    console.log("✅ Quest progress updated: Charger repaired");
-                } catch (error) {
-                    console.error("Error updating quest progress:", error);
-                }
-        } else {
-            alert("Chyba pri komunikácii s databázou.");
-        }
-    } else {
-        alert("Systém: Nedostatok energie v akumulátore!");
-    }
-});
-
 // --- ITEM PROXIMITY UI ---
 
 let itemPromptDiv = null;
@@ -565,6 +709,8 @@ ${itemDesc.value ? `[Hodnota: +${itemDesc.value} jednotiek energie]` : ''}
 // Klávesové skratky pre interakciu s itemom (E/Q) bez potreby klikania
 window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
+    
+    // Item interaction
     if (!isRobotInItemZone || !nearbyItemId) return;
     if (key !== 'e' && key !== 'q') return;
 
@@ -655,6 +801,27 @@ function animate() {
         if (robot.rotation && typeof robot.rotation.y !== 'undefined') {
             robotModel.rotation.y = robot.rotation.y;
         }
+    }
+
+    // Proximity detection - Broken Charger Dialog (automatický)
+    if (typeof chargerObjects !== 'undefined') {
+        chargerObjects.forEach(obj => {
+            if (!obj.userData.isBroken) return;
+            
+            const dx = (robot.position.x || 0) - (obj.position.x || 0);
+            const dz = (robot.position.z || 0) - (obj.position.z || 0);
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            
+            if (dist < 1.5 && !isRobotInChargerZone) {
+                console.log('[Charger] Proximity detected! Distance:', dist.toFixed(2), 'Charger ID:', obj.userData.id);
+                isRobotInChargerZone = true;
+                
+                // Spusti dialóg automaticky
+                showBrokenChargerDialog();
+            } else if (dist >= 1.5 && isRobotInChargerZone) {
+                isRobotInChargerZone = false;
+            }
+        });
     }
 
     if (typeof chargerObjects !== 'undefined') {

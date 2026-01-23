@@ -28,14 +28,14 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 - `items.js` — 3D item rendering (batérie, battery packy) s tier system farbami
 
 ### 📁 UI & HUD Systems
-- `hud.js` (127 lines) — Energy Orb, Accumulator Orb, Level badge, XP bar aktualizácia
+- `hud.js` (127 lines) — Energy Orb, Accumulator Orb, Learning Points Orb, Level badge, XP bar aktualizácia
 - `hud-tiers.js` (96 lines) — HUD tier management system (Rusted → Legendary)
 - `angie.js` (128 lines) — ENGEE AI dialogue system, typewriter efekt, avatar management (video/image)
 - `dialogues.js` — knižnica rozhovorov s skill requirement checks
-- `skills.js` (177 lines) — SPECIAL skill tree UI a alokácia bodov
+- `skills.js` (663 lines) — SPECIAL skill tree UI, ACC/LP investment system, skill detail modals
 - `inventory.js` (197 lines) — inventár modal s tab system, item usage
 - `kodex.js` (255 lines) — kodex entries (miesta, technológie, postavy)
-- `quests.js` (254 lines) — quest log UI, main/side/completed tabs
+- `quests.js` (254 lines) — quest log UI, main/side/completed tabs, LP rewards
 - `levelup.js` — level-up modal s animáciami
 
 ### 📁 Mobile & Integration
@@ -44,11 +44,12 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 ### 📂 CSS Modules (Modularizované)
 - `00-root.css` — CSS variables, HUD tier anchor points, global farby
 - `01-base.css` (162 lines) — HUD frame layout, grid system, tier-specific positioning
-- `02-energy-orb.css` (295 lines) — Energy & Accumulator orb styling, liquid fill animations, glow efekty
+- `02-energy-orb.css` (368 lines) — Energy, Accumulator & Learning Points orb styling, liquid fill animations, glow efekty
 - `03-buttons.css` — HUD button styling, sci-fi dizajn
-- `04-modals.css` — Modal windows (skills, inventory, kodex, quests, levelup)
+- `04-modals.css` (2045 lines) — Modal windows (skills, inventory, kodex, quests, levelup), ACC/LP panels, skill investment grid
 - `05-responsive.css` — Mobile & tablet breakpoints
 - `06-angie.css` — ENGEE AI interface, dialogue box, choice buttons
+- `07-game-menu.css` — Game menu (NEW GAME, SAVE, LOAD, SETTINGS)
 
 ### 📂 Assets (3D Models & Graphics)
 **3D Models (.glb):**
@@ -61,8 +62,9 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 **HUD Graphics (Tier System):**
 - `assets/Rusted/` — Tier 1 HUD assets
   - `HUD_Frame_Tier_Rusted.png` — hlavný HUD frame
-  - `HUD_baseenergyHP_Orb_Rusted.png` — Energy orb asset
-  - `HUD_accumulator_Orb_Rusted.png` — Accumulator orb asset
+  - `HUD_baseenergyHP_Orb_Rusted.png` — Energy orb asset (green)
+  - `HUD_accumulator_Orb_Rusted.png` — Accumulator orb asset (blue)
+  - (Learning Points orb používa placeholder - budúca custom grafika)
   - `TS_button_rusted.png` — Transfer System button
   - `skill_button_rusted.png` — Skills button overlay
 
@@ -96,8 +98,13 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 
 **Skills (SPECIAL System):**
 - `getSkills(playerId)` - Fetch skills data
-- `allocateSkillPoint(playerId, statKey)` - Spend skill point (transakčne, max 10)
-- `updateSkill(playerId, statKey, updates)` - Admin skill update
+- `investSkillEnergy(playerId, skillKey, amount, robotObj)` - Invest ACC into S, E
+- `investSkillEnergyFromLP(playerId, skillKey, amount, robotObj)` - Invest LP into I, P, C
+- `calculateSkillLevel(investedEnergy)` - Calculate level from energy
+- `calculateSkillEnergyRequired(level)` - Formula: 100 * (1.5 ^ (level-1))
+- `calculateTotalEnergyForLevel(targetLevel)` - Cumulative energy
+- `allocateSkillPoint(playerId, statKey)` - DEPRECATED
+- `updateSkill(playerId, statKey, updates)` - DEPRECATED
 - `watchPlayerSkills(playerId, callback)` - Real-time skills
 
 **Inventory System:**
@@ -225,7 +232,7 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
 - `addStepToDatabase(playerId, amount)` - Debug step injection
 - Step buffer system (syncs every 10 steps or 15s)
 - Background mode configuration
-- Accumulator capacity respected (max 10000)
+- Accumulator capacity respected (max 1000)
 
 ## Common Tasks - Quick Guide (Rozšírené)
 
@@ -426,7 +433,7 @@ Kompletný technický prehľad pre rýchlu orientáciu (na účely spolupráce a
   energy: number,              // Aktuálna energia (HP)
   maxEnergy: number,           // Max energia (default 200)
   accumulator: number,         // Nazbierané kroky/energia
-  accumulatorMax: number,      // Max kapacita akumulátora (10000)
+  accumulatorMax: number,      // Max kapacita akumulátora (1000)
   serviceActive: boolean,      // Mobile pedometer aktívny
   
   // Position
@@ -878,11 +885,17 @@ www/
 - [x] Basic 3D scene rendering
 - [x] HUD Tier 1 (Rusted) implemented
 - [x] Skills system (SPECIAL)
+- [x] ACC investment system (Strength, Endurance)
+- [x] LP investment system (Intelligence, Perception, Charisma)
 - [x] Inventory system
 - [x] Kodex system
-- [x] Quest system
+- [x] Quest system with LP rewards
 - [x] Level/XP system
 - [x] Mobile pedometer integration
+- [x] Learning Points currency system
+- [x] Skills modal UI (5-column grid, no scrollbars)
+- [ ] Locked skills unlock system (Agility, Luck)
+- [ ] Rewarded Ads integration (future LUCK Points)
 - [ ] Firebase Authentication
 - [ ] Multiplayer sync
 - [ ] Sound system
@@ -913,6 +926,25 @@ git push origin main
 ```
 
 ---
-**Dokument aktualizovaný:** 2026-01-17  
-**Verzia:** 3.0 (Kompletný prehľad)  
+**Dokument aktualizovaný:** 2026-01-23  
+**Verzia:** 3.2 (Skills Tab System + Total Pedometer Energy)  
 **Súbor vytvorený na zlepšenie viditeľnosti projektu pri ďalšej spolupráci.**
+
+**Najnovšie zmeny (23.1.2026):**
+- ✅ **Skills Modal Tab System** - 3 taby: SPECIAL ATTRIBUTES, PERKS (placeholder), FITNESS
+- ✅ **Total Pedometer Energy** - kumulatívne sledovanie krokov od NEW GAME
+- ✅ **FITNESS Tab** - zobrazuje Current ACC (modrý) a Total Pedometer (zelený panel)
+- ✅ **Pedometer logika fix** - `lastKnownFirebaseValue` z Total, nie z Current (investovanie neresetuje pri refresh)
+- ✅ **CSS fixes** - odstránené hover efekty a ::before overlays, explicitné z-index a pointer-events pre invest controls
+- ✅ **Robot objekt** - pridané `totalPedometerEnergy` field, načítanie pri štarte, ukladanie do JSON
+- ✅ **resetGame()** - resetuje `totalPedometerEnergy = 0` pri NEW GAME
+- 📊 **FITNESS Tab features** (pripravované): denné/týždenné/mesačné štatistiky, achievementy, grafy, odmeny
+
+**Predchádzajúce zmeny (22.1.2026):**
+- ✅ LP investovanie do Intelligence, Perception, Charisma
+- ✅ LP HUD orb (fialový, vpravo hore)
+- ✅ Skills UI refaktoring - 3 kategórie: ACC (S,E), LP (I,P,C), Locked (A,L)
+- ✅ Skills modal layout optimalizácia - 5-column grid, bez scrollbars
+- ✅ Quest rewards rozšírené o learningPoints field
+- ✅ Event system pre LP updates (learningPointsUpdated)
+- 📄 Vytvorený `LEARNING_POINTS_SYSTEM.md` - kompletná dokumentácia

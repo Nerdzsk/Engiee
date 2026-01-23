@@ -168,6 +168,79 @@
     white-space: nowrap;
 }
 
+/* === LEARNING POINTS ORB (fialový orb) === */
+.learning-orb {
+    position: absolute;
+    top: 2.5vw;
+    right: 2.5vw;
+    width: 11.25vw;
+    height: 10vw;
+    border-radius: 50%;
+    overflow: hidden;
+    z-index: 910;
+    filter: drop-shadow(0 0 20px rgba(200, 100, 255, 0.8));
+    pointer-events: none;
+}
+
+.learning-orb::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.5), transparent 50%);
+    border-radius: 50%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.learning-orb::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, rgba(200, 100, 255, 0.2), transparent 70%);
+    border-radius: 50%;
+    z-index: 1;
+    animation: learningPulse 3s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes learningPulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+.learning-liquid {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--fill-percent, 0%);
+    background: linear-gradient(180deg, #c864ff 0%, #9932ff 50%, #6600cc 100%);
+    border-radius: 0 0 50% 50%;
+    z-index: 0;
+    transition: height 0.8s ease-out;
+    box-shadow: 0 0 30px rgba(200, 100, 255, 0.8);
+}
+
+.learning-orb-display {
+    position: absolute;
+    top: calc(2.5vw + 80px);
+    right: calc(2.5vw + 30px);
+    text-align: center;
+    color: #c864ff;
+    font-family: 'VT323', monospace;
+    font-size: 2.0vw;
+    font-weight: 400;
+    letter-spacing: 0.1vw;
+    text-shadow: 0 0 8px rgba(200, 100, 255, 0.6), 0 0 12px rgba(200, 100, 255, 0.4);
+    z-index: 911;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
 /* === LEVEL & XP TOP CENTER === */
 .hud-top-center-level {
     position: absolute;

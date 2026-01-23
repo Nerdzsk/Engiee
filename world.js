@@ -409,7 +409,10 @@ function loadNewCharger(scene, data) {
         model.userData = {
             id: data.id,
             isBroken: data.isBroken,
-            statusLight: statusLight
+            statusLight: statusLight,
+            x: data.x,
+            z: data.z,
+            rotation: data.rotation || 0
         };
 
         scene.add(model);
@@ -417,6 +420,32 @@ function loadNewCharger(scene, data) {
         try { ensureMaterialsVisible(model); } catch (e) {}
         chargerObjects.push(model);
         console.log(`🆕 Charger ${data.id} LOADED at position (${data.x}, ${data.z})`);
+    });
+}
+
+// Funkcia na výmenu pokazeného chargera za opravený model
+export function replaceChargerModel(scene, chargerId) {
+    const oldChargerIndex = chargerObjects.findIndex(obj => obj.userData.id === chargerId);
+    if (oldChargerIndex === -1) {
+        console.error('[Charger] Charger not found:', chargerId);
+        return;
+    }
+    
+    const oldCharger = chargerObjects[oldChargerIndex];
+    const { x, z, rotation } = oldCharger.userData;
+    
+    // Odstráň starý model zo scény
+    scene.remove(oldCharger);
+    chargerObjects.splice(oldChargerIndex, 1);
+    console.log('[Charger] Old broken model removed');
+    
+    // Nahraj nový (opravený) model
+    loadNewCharger(scene, {
+        id: chargerId,
+        x: x,
+        z: z,
+        rotation: rotation,
+        isBroken: false
     });
 }
 

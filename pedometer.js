@@ -76,7 +76,7 @@ export async function activatePedometer(playerId) {
             runTransaction(db, async (transaction) => {
                 const playerDoc = await transaction.get(playerRef);
                 const currentAccumulator = playerDoc.data()?.accumulator || 0;
-                const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+                const maxAccumulator = playerDoc.data()?.accumulatorMax || 1000;
                 const newAccumulator = Math.min(currentAccumulator + toSync, maxAccumulator);
                 
                 transaction.update(playerRef, {
@@ -107,7 +107,7 @@ export async function addStepToDatabase(playerId, amount) {
         await runTransaction(db, async (transaction) => {
             const playerDoc = await transaction.get(playerRef);
             const currentAccumulator = playerDoc.data()?.accumulator || 0;
-            const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+            const maxAccumulator = playerDoc.data()?.accumulatorMax || 1000;
             const newAccumulator = Math.min(currentAccumulator + amount, maxAccumulator);
             
             transaction.update(playerRef, {

@@ -946,6 +946,401 @@ body {
     text-transform: uppercase;
 }
 
+/* --- ACCUMULATOR INVESTMENT SYSTEM --- */
+
+.accumulator-panel {
+    background: linear-gradient(135deg, rgba(0, 120, 180, 0.3), rgba(0, 200, 255, 0.2));
+    border: 3px solid #00ffff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+.acc-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.acc-icon {
+    font-size: 48px;
+    color: #00ffff;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+    animation: accPulse 2s ease-in-out infinite;
+}
+
+@keyframes accPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.acc-text {
+    flex: 1;
+}
+
+.acc-label {
+    font-size: 14px;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+}
+
+.acc-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+}
+
+.acc-bar {
+    width: 100%;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid #00ffff;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.acc-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0088ff, #00ffff);
+    border-radius: 8px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+}
+
+/* Skills Investment Grid */
+.skills-investment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.skill-investment-card {
+    background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(40, 40, 20, 0.95));
+    border: 3px solid #ffff00;
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.skill-investment-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 0, 0.1) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.skill-investment-card:hover::before {
+    opacity: 1;
+}
+
+.skill-investment-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 40px rgba(255, 255, 0, 0.6), 0 0 30px rgba(0, 255, 255, 0.3);
+    border-color: #00ffff;
+    background: linear-gradient(135deg, rgba(40, 40, 20, 0.95), rgba(30, 50, 30, 0.95));
+}
+
+.skill-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(255, 255, 0, 0.3);
+}
+
+.skill-key-large {
+    font-size: 48px;
+    font-weight: bold;
+    color: #ffff00;
+    text-shadow: 0 0 10px rgba(255, 255, 0, 0.6);
+    min-width: 60px;
+    text-align: center;
+}
+
+.skill-info {
+    flex: 1;
+}
+
+.skill-info .skill-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.skill-info .skill-desc {
+    font-size: 12px;
+    color: #aaaaaa;
+}
+
+.skill-level {
+    font-size: 36px;
+    font-weight: bold;
+    color: #00ff41;
+    text-shadow: 0 0 15px rgba(0, 255, 65, 1), 0 0 30px rgba(0, 255, 65, 0.5);
+    background: rgba(0, 255, 65, 0.1);
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 2px solid rgba(0, 255, 65, 0.3);
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Progress Section */
+.skill-progress-section {
+    margin-bottom: 15px;
+}
+
+.skill-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #ffff00;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    border-left: 4px solid #ffff00;
+}
+
+.skill-progress-info span:first-child {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.skill-progress-info .energy-needed {
+    color: #00ffff;
+    font-weight: bold;
+    background: rgba(0, 255, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #00ffff;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.skill-progress-bar {
+    width: 100%;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 3px solid #ffff00;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+    position: relative;
+}
+
+.skill-progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 0, 0.1) 50%, 
+        transparent 100%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.skill-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff9900, #ffff00, #00ff41);
+    background-size: 200% 100%;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 20px rgba(255, 255, 0, 1), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+    position: relative;
+    animation: progressGlow 3s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(255, 255, 0, 1), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        background-position: 0% 50%;
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(0, 255, 65, 1), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+        background-position: 100% 50%;
+    }
+}
+
+.skill-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
+    border-radius: 10px 10px 0 0;
+}
+
+.skill-total-invested {
+    font-size: 11px;
+    color: #888888;
+    text-align: right;
+}
+
+/* Investment Controls */
+.skill-invest-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.invest-input {
+    flex: 1;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 40, 0.8));
+    border: 3px solid #ffff00;
+    color: #ffffff;
+    padding: 12px 16px;
+    font-size: 18px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.invest-input:focus {
+    outline: none;
+    border-color: #00ffff;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), inset 0 2px 8px rgba(0, 0, 0, 0.6);
+    background: linear-gradient(135deg, rgba(0, 20, 40, 0.9), rgba(0, 40, 60, 0.9));
+}
+
+.invest-input::placeholder {
+    color: #666;
+    font-style: italic;
+}
+
+.invest-btn {
+    padding: 12px 30px;
+    background: linear-gradient(135deg, rgba(0, 255, 100, 0.4), rgba(0, 200, 255, 0.4));
+    border: 3px solid #00ff41;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 2px;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.8);
+    box-shadow: 0 4px 15px rgba(0, 255, 65, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.invest-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.invest-btn:hover:not(:disabled)::before {
+    width: 300px;
+    height: 300px;
+}
+
+.invest-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0, 255, 100, 0.8), rgba(0, 255, 255, 0.8));
+    box-shadow: 0 0 30px rgba(0, 255, 65, 1), 0 0 50px rgba(0, 255, 255, 0.5);
+    transform: translateY(-2px) scale(1.05);
+    border-color: #00ffff;
+}
+
+.invest-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+}
+
+.invest-btn:disabled {
+    background: rgba(60, 60, 60, 0.3);
+    border-color: #444;
+    color: #666;
+    cursor: not-allowed;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+/* Level Up Notification */
+.skill-levelup-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 255, 100, 0.95);
+    border: 4px solid #00ff41;
+    padding: 30px 50px;
+    border-radius: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #000000;
+    text-align: center;
+    z-index: 3000;
+    box-shadow: 0 0 50px rgba(0, 255, 65, 1);
+    animation: levelUpPop 0.5s ease;
+}
+
+@keyframes levelUpPop {
+    0% { transform: translate(-50%, -50%) scale(0); }
+    70% { transform: translate(-50%, -50%) scale(1.1); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.skill-levelup-notification.fade-out {
+    animation: fadeOut 0.5s ease;
+    opacity: 0;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.levelup-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.levelup-text {
+    font-size: 18px;
+}
+
 /* --- INVENTORY MODAL --- */
 
 .inventory-modal {
@@ -1790,3 +2185,27 @@ body {
 .hud-left #energy-hp-text { display: none; }
 .hud-left .sync-indicator { display: none; }
 .hud-left .label-power { display: none; }
+
+/* === INTERACTION PROMPT === */
+.interaction-prompt {
+    position: fixed;
+    bottom: 25vh;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 15px 30px;
+    background: rgba(0, 0, 0, 0.9);
+    color: #00ffff;
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    border: 2px solid #00ffff;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 9999;
+}
+
+.interaction-prompt.active {
+    opacity: 1;
+}

@@ -38,16 +38,57 @@ function fetchNoCacheHelper(url) {
 export function watchPedometerSteps(playerId, robotObj, callback) {
     const playerRef = doc(db, "players", playerId);
     
-    return onSnapshot(playerRef, (docSnap) => {
+    // Inicializuj poslednú známu Firebase hodnotu z Total (nie z Current ACC!)
+    // Total = celková Firebase hodnota, Current = lokálna hodnota po investovaní
+    let lastKnownFirebaseValue = robotObj.totalPedometerEnergy || 0;
+    
+    return onSnapshot(playerRef, async (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
             const firebaseAccumulator = data.accumulator || 0;
             
-            // Aktualizuj LEN ak Firebase hodnota je VYŠŠIA (nové kroky pridané)
-            // Toto zabezpečí že NEW GAME (ACC=0) nebude prepísaný starou Firebase hodnotou
-            if (robotObj && firebaseAccumulator > robotObj.accumulator) {
-                console.log(`[Pedometer] Nové kroky z Firebase: ${robotObj.accumulator} → ${firebaseAccumulator}`);
-                robotObj.accumulator = Math.min(firebaseAccumulator, robotObj.maxAccumulator || 10000);
+            // Porovnaj s POSLEDNOU Firebase hodnotou, nie s current ACC
+            // Toto zabezpečí že investovanie neovplyvní prírastok krokov
+            if (robotObj && firebaseAccumulator > lastKnownFirebaseValue) {
+                const energyGained = firebaseAccumulator - lastKnownFirebaseValue;
+                const newAcc = Math.min(robotObj.accumulator + energyGained, robotObj.maxAccumulator || 1000);
+                
+                console.log(`[Pedometer] Nové kroky z Firebase: ${robotObj.accumulator} + ${energyGained} = ${newAcc}`);
+                console.log(`[Pedometer] Firebase value: ${lastKnownFirebaseValue} → ${firebaseAccumulator}`);
+                
+                robotObj.accumulator = newAcc;
+                lastKnownFirebaseValue = firebaseAccumulator; // Aktualizuj poslednú známu hodnotu
+                
+                // Total Pedometer Energy = Firebase hodnota (celkové kroky od NEW GAME)
+                robotObj.totalPedometerEnergy = firebaseAccumulator;
+                console.log(`[Pedometer] Total energy from start: ${robotObj.totalPedometerEnergy}`);
+                // Daily Steps: reset pri novom dni alebo novej hre, potom pripočítaj prírastok
+                const today = new Date();
+                const todayStr = today.toISOString().substring(0, 10);
+                if (!robotObj.dailyStepsDate || robotObj.dailyStepsDate !== todayStr) {
+                    robotObj.dailySteps = 0;
+                    robotObj.dailyStepsDate = todayStr;
+                }
+                robotObj.dailySteps = (robotObj.dailySteps || 0) + energyGained;
+                
+                // Aktualizuj player dáta + achievementy v JSON (vrátane dailySteps)
+                await updateAchievementsForPedometer(
+                    playerId,
+                    robotObj.totalPedometerEnergy,
+                    robotObj.accumulator,
+                    robotObj.dailySteps,
+                    robotObj.dailyStepsDate
+                );
+                
+                // Dispatch event pre real-time update UI
+                window.dispatchEvent(new CustomEvent('accumulatorUpdated', {
+                    detail: {
+                        accumulator: robotObj.accumulator,
+                        totalPedometerEnergy: robotObj.totalPedometerEnergy,
+                        dailySteps: robotObj.dailySteps,
+                        dailyStepsDate: robotObj.dailyStepsDate
+                    }
+                }));
                 
                 // Zavolaj callback pre aktualizáciu HUD
                 if (callback) callback(robotObj.accumulator);
@@ -56,6 +97,168 @@ export function watchPedometerSteps(playerId, robotObj, callback) {
     }, (error) => {
         console.error("[Firebase] Error watching pedometer:", error);
     });
+}
+
+/**
+ * Zaistí existenciu achievements a aktualizuje progres pre pedometer ciele.
+ * Aktuálne: 'first_steps' – urob 100 krokov od začiatku hry
+ */
+async function updateAchievementsForPedometer(playerId, totalPedometerEnergy, currentAccumulator, dailySteps, dailyStepsDate) {
+    try {
+        const res = await fetch('player_quests.json?_=' + Date.now(), { cache: 'no-store' });
+        const data = await res.json();
+        const player = data.find(p => p.playerId === playerId);
+        if (!player) return false;
+
+        // Inicializácia achievements ak chýbajú
+        if (!Array.isArray(player.achievements)) {
+            player.achievements = [];
+        }
+
+        // Nájdime alebo pridajme 'first_steps'
+        let first = player.achievements.find(a => a.id === 'first_steps');
+        if (!first) {
+            first = {
+                id: 'first_steps',
+                title: 'Prvé kroky',
+                description: 'Urob prvých 100 krokov od začiatku hry',
+                category: 'fitness',
+                target: 100,
+                current: 0,
+                completed: false,
+                completedAt: null,
+                rewards: { perkUnlocked: 'endurance_boost_1' }
+            };
+            player.achievements.push(first);
+        }
+
+        // Aktualizuj current = min(totalPedometerEnergy, target) (nepresahuje cieľ)
+        const prevCompleted = !!first.completed;
+        const targetSteps = first.target || 100;
+        const mirroredTotal = totalPedometerEnergy || 0;
+        const clampedTotal = Math.min(mirroredTotal, targetSteps);
+        first.current = Math.max(first.current || 0, clampedTotal);
+        if (!first.completed && first.current >= targetSteps) {
+            first.completed = true;
+            first.completedAt = new Date().toISOString();
+            console.log('[Achievement] Completed: Prvé kroky');
+        }
+
+        // Ulož aktuálne čísla ACC, Total a Daily Steps, aby UI bolo konzistentné
+        player.accumulator = currentAccumulator;
+        player.totalPedometerEnergy = totalPedometerEnergy;
+        player.dailySteps = dailySteps || 0;
+        player.dailyStepsDate = dailyStepsDate || new Date().toISOString().substring(0, 10);
+        // Ak sa achievement práve splnil, odomkni perk "Jeden krok pre robota"
+        if (!prevCompleted && first.completed) {
+            if (!Array.isArray(player.perks)) player.perks = [];
+            const perkId = 'one_step_for_robot';
+            const already = player.perks.find(p => p.id === perkId);
+            if (!already) {
+                player.perks.push({
+                    id: perkId,
+                    title: 'Jeden krok pre robota',
+                    description: '+50 k max kapacite batérie',
+                    acquiredAt: new Date().toISOString(),
+                    applied: true
+                });
+                // Aplikuj efekt perku: trvalé +50 k maxEnergy
+                const before = player.maxEnergy || 200;
+                player.maxEnergy = before + 50;
+                // Necháme current energy bez zmeny, ale zaručíme limit
+                player.energy = Math.min(player.energy || 0, player.maxEnergy);
+
+                // Runtime update ak je dostupný globálny robot a HUD
+                try {
+                    if (window && window.robot) {
+                        window.robot.maxEnergy = player.maxEnergy;
+                        if (typeof window.updateEnergyHUD === 'function') {
+                            window.updateEnergyHUD(window.robot.energy, window.robot.maxEnergy);
+                        }
+                    }
+                } catch (_) { /* ignore cross-module issues */ }
+
+                // Notifikuj UI
+                window.dispatchEvent(new CustomEvent('perksUpdated', {
+                    detail: { perkId, perks: player.perks }
+                }));
+                window.dispatchEvent(new CustomEvent('energyMaxChanged', {
+                    detail: { maxEnergy: player.maxEnergy }
+                }));
+                console.log('[Perk] Unlocked: Jeden krok pre robota (+50 maxEnergy)');
+            }
+        }
+
+        player.lastUpdate = Date.now();
+
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+        }
+        
+        // Informuj UI o zmene achievements
+        window.dispatchEvent(new CustomEvent('achievementsUpdated', {
+            detail: { achievements: player.achievements }
+        }));
+        return true;
+    } catch (e) {
+        console.error('[updateAchievementsForPedometer] Error:', e);
+        return false;
+    }
+}
+
+/**
+ * ensureDailyStepsForToday — zabezpečí, že denný counter je vždy za dnešný dátum.
+ * Ak je v player JSONe iný deň, resetne na 0 a nastaví dnešný dátum.
+ * Použité pre prípady, keď sa stránka otvorí nasledujúci deň ešte pred príchodom nových krokov z Firebase.
+ */
+export async function ensureDailyStepsForToday(playerId, robotObj) {
+    try {
+        const todayStr = new Date().toISOString().substring(0, 10);
+
+        if (robotObj) {
+            if (robotObj.dailyStepsDate !== todayStr) {
+                robotObj.dailySteps = 0;
+                robotObj.dailyStepsDate = todayStr;
+            }
+        }
+
+        const res = await fetch('player_quests.json?_=' + Date.now(), { cache: 'no-store' });
+        const data = await res.json();
+        const player = data.find(p => p.playerId === playerId);
+        if (!player) return false;
+
+        let changed = false;
+        if (player.dailyStepsDate !== todayStr) {
+            player.dailyStepsDate = todayStr;
+            player.dailySteps = 0;
+            changed = true;
+        }
+
+        // Sync s runtime robotom (ak existuje)
+        if (typeof player.dailySteps === 'number' && robotObj && player.dailySteps !== robotObj.dailySteps) {
+            robotObj.dailySteps = player.dailySteps;
+            changed = true;
+        }
+
+        if (changed) {
+            player.lastUpdate = Date.now();
+            if (window.saveLocalJson) {
+                await window.saveLocalJson('player_quests.json', data);
+            }
+            window.dispatchEvent(new CustomEvent('accumulatorUpdated', {
+                detail: {
+                    accumulator: robotObj ? robotObj.accumulator : 0,
+                    totalPedometerEnergy: robotObj ? robotObj.totalPedometerEnergy : 0,
+                    dailySteps: player.dailySteps || 0,
+                    dailyStepsDate: todayStr
+                }
+            }));
+        }
+        return true;
+    } catch (e) {
+        console.error('[ensureDailyStepsForToday] Error:', e);
+        return false;
+    }
 }
 
 /**
@@ -162,6 +365,38 @@ export async function updatePlayerStatus(playerId, x, z, energy) {
     return true;
 }
 
+/**
+ * Aktualizuje špecifické polia v player dátach a uloží do JSON
+ */
+async function updatePlayerData(playerId, updates) {
+    try {
+        const res = await fetch('player_quests.json?_=' + Date.now(), { cache: 'no-store' });
+        const data = await res.json();
+        const player = data.find(p => p.playerId === playerId);
+        
+        if (!player) {
+            console.error('[updatePlayerData] Player not found:', playerId);
+            return false;
+        }
+        
+        // Aplikuj všetky updaty
+        Object.assign(player, updates);
+        player.lastUpdate = Date.now();
+        
+        // Ulož späť do JSON
+        if (window.saveLocalJson) {
+            await window.saveLocalJson('player_quests.json', data);
+            console.log('[updatePlayerData] Saved:', updates);
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('[updatePlayerData] Error:', error);
+        return false;
+    }
+}
+
 
 
 
@@ -239,7 +474,10 @@ export async function resetGame(playerId) {
         player.energy = 200;
         player.maxEnergy = 200;
         player.accumulator = 0;
-        player.maxAccumulator = 10000;  // Správna kapacita ACC
+        player.maxAccumulator = 1000;  // Správna kapacita ACC
+        player.totalPedometerEnergy = 0;  // Reset celkovej energie z pedometra
+        player.dailySteps = 0;            // Reset daily steps
+        player.dailyStepsDate = new Date().toISOString().substring(0, 10);
         player.level = 1;
         player.xp = 0;
         player.skillPoints = 0;
@@ -247,18 +485,37 @@ export async function resetGame(playerId) {
         player.seenDialogues = [];
         player.hasSeenIntro = false;
         player.lastUpdate = Date.now();
+        
+        // Nový skill systém - všetky skills začínajú na level 0
         player.skills = {
-            strength: { base: 5, bonus: 0 },
-            perception: { base: 5, bonus: 0 },
-            endurance: { base: 5, bonus: 0 },
-            charisma: { base: 5, bonus: 0 },
-            intelligence: { base: 5, bonus: 0 },
-            agility: { base: 5, bonus: 0 },
-            luck: { base: 5, bonus: 0 }
+            S: { investedEnergy: 0, level: 0 },
+            P: { investedEnergy: 0, level: 0 },
+            E: { investedEnergy: 0, level: 0 },
+            C: { investedEnergy: 0, level: 0 },
+            I: { investedEnergy: 0, level: 0 },
+            A: { investedEnergy: 0, level: 0 },
+            L: { investedEnergy: 0, level: 0 }
         };
+        
         player.inventory = {};
         player.kodex = {};
         player.quests = { active: [], completed: [] };
+        // Reset achievements
+        player.achievements = [
+            {
+                id: 'first_steps',
+                title: 'Prvé kroky',
+                description: 'Urob prvých 100 krokov od začiatku hry',
+                category: 'fitness',
+                target: 100,
+                current: 0,
+                completed: false,
+                completedAt: null,
+                rewards: { perkUnlocked: 'endurance_boost_1' }
+            }
+        ];
+        // Reset perks
+        player.perks = [];
         
         // Ulož lokálny JSON
         if (window.saveLocalJson) {
@@ -359,63 +616,239 @@ export async function getSkills(playerId) {
     }
 }
 
-// allocateSkillPoint — pridelí bod do konkrétneho stattu (lokálna verzia)
-export async function allocateSkillPoint(playerId, statKey) {
-    const validStats = ['strength', 'perception', 'endurance', 'charisma', 'intelligence', 'agility', 'luck'];
-    if (!validStats.includes(statKey)) {
-        console.error("Invalid stat key:", statKey);
-        return false;
+// ============================================================
+// SKILL SYSTEM - Accumulator Investment Based
+// ============================================================
+
+/**
+ * Vypočíta koľko energie je potrebné na dosiahnutie určitého levelu
+ * Exponenciálny rast: level 1 = 100, level 2 = 250, level 3 = 500...
+ * Formula: energyRequired = 100 * (1.5 ^ (level - 1))
+ * @param {number} level - Cieľový level (1, 2, 3...)
+ * @returns {number} - Potrebná energia na dosiahnutie tohto levelu
+ */
+export function calculateSkillEnergyRequired(level) {
+    if (level <= 0) return 0;
+    return Math.floor(100 * Math.pow(1.5, level - 1));
+}
+
+/**
+ * Vypočíta aktuálny level na základe investovanej energie
+ * @param {number} investedEnergy - Celková investovaná energia do skillu
+ * @returns {number} - Aktuálny level skillu
+ */
+export function calculateSkillLevel(investedEnergy) {
+    if (investedEnergy <= 0) return 0;
+    
+    let level = 0;
+    let totalRequired = 0;
+    
+    while (totalRequired <= investedEnergy) {
+        level++;
+        totalRequired += calculateSkillEnergyRequired(level);
     }
+    
+    return level - 1; // Vráti posledný dokončený level
+}
+
+/**
+ * Vypočíta celkovú energiu potrebnú na dosiahnutie levelu (suma všetkých predošlých levelov)
+ * @param {number} targetLevel - Cieľový level
+ * @returns {number} - Celková energia potrebná
+ */
+export function calculateTotalEnergyForLevel(targetLevel) {
+    let total = 0;
+    for (let i = 1; i <= targetLevel; i++) {
+        total += calculateSkillEnergyRequired(i);
+    }
+    return total;
+}
+
+/**
+ * Investuje energiu z akumulátora do konkrétneho skillu (len S a E)
+ * @param {string} playerId - ID hráča
+ * @param {string} skillKey - Kľúč skillu (S alebo E)
+ * @param {number} amount - Množstvo energie na investíciu
+ * @param {object} robotObj - Robot objekt s accumulator hodnotou
+ * @returns {object} - { success, newLevel, remainingAcc, message }
+ */
+export async function investSkillEnergy(playerId, skillKey, amount, robotObj) {
+    const validStats = ['S', 'E'];  // Len S a E z ACC
+    if (!validStats.includes(skillKey)) {
+        return { success: false, message: 'Tento skill sa nemôže investovať z ACC' };
+    }
+    
+    if (amount <= 0) {
+        return { success: false, message: 'Množstvo musí byť väčšie ako 0' };
+    }
+    
+    // Skontroluj či má dostatok v akumulátore
+    if (!robotObj || robotObj.accumulator < amount) {
+        return { success: false, message: 'Nedostatok energie v akumulátore' };
+    }
+    
     try {
-        const res = await fetch('player_quests.json');
+        const res = await fetchNoCacheHelper('player_quests.json');
         const data = await res.json();
         const player = data.find(q => q.playerId === playerId);
-        if (!player) throw new Error("Player does not exist");
-        if (!player.skillPoints || player.skillPoints <= 0) {
-            throw new Error("No skill points available");
-        }
+        
+        if (!player) throw new Error('Player does not exist');
+        
+        // Inicializuj skills ak neexistujú
         if (!player.skills) player.skills = {};
-        const current = player.skills[statKey] || { base: 3, bonus: 0 };
-        current.base = Math.min(current.base + 1, 10);
-        player.skills[statKey] = current;
-        player.skillPoints = player.skillPoints - 1;
+        
+        // Inicializuj konkrétny skill
+        if (!player.skills[skillKey]) {
+            player.skills[skillKey] = { investedEnergy: 0, level: 0 };
+        }
+        
+        const skill = player.skills[skillKey];
+        const oldLevel = skill.level || 0;
+        
+        // Pridaj investovanú energiu
+        skill.investedEnergy = (skill.investedEnergy || 0) + amount;
+        
+        // Prepočítaj level
+        skill.level = calculateSkillLevel(skill.investedEnergy);
+        const newLevel = skill.level;
+        
+        // Zníž accumulator
+        robotObj.accumulator -= amount;
+        player.accumulator = robotObj.accumulator;
+        
+        // Ulož zmeny
         if (window.saveLocalJson) {
             await window.saveLocalJson('player_quests.json', data);
-            console.log(`Skill ${statKey} allocated successfully`);
-            return true;
+            
+            console.log(`[Skills] Investovaných ${amount} EP do ${skillKey}`);
+            console.log(`[Skills] Level: ${oldLevel} → ${newLevel}`);
+            console.log(`[Skills] Celková investícia: ${skill.investedEnergy} EP`);
+            
+            // Dispatch event pre UI update
+            window.dispatchEvent(new CustomEvent('skillsUpdated', {
+                detail: {
+                    skillKey,
+                    oldLevel,
+                    newLevel,
+                    investedEnergy: skill.investedEnergy,
+                    accumulator: robotObj.accumulator
+                }
+            }));
+            
+            return {
+                success: true,
+                newLevel,
+                oldLevel,
+                remainingAcc: robotObj.accumulator,
+                investedEnergy: skill.investedEnergy,
+                message: newLevel > oldLevel ? `Level UP! ${skillKey}: ${newLevel}` : 'Energia investovaná'
+            };
         } else {
             throw new Error('saveLocalJson helper nie je dostupný!');
         }
     } catch (error) {
-        console.error("Error: Failed to allocate skill point:", error);
-        return false;
+        console.error('[Skills] Error investing energy:', error);
+        return { success: false, message: 'Chyba pri investovaní energie' };
     }
 }
 
-// updateSkill — aktualizuje konkrétny stat (base alebo bonus) (lokálna verzia)
-export async function updateSkill(playerId, statKey, updates) {
+/**
+ * Investuje Learning Points do konkrétneho skillu (len I, P, C)
+ * @param {string} playerId - ID hráča
+ * @param {string} skillKey - Kľúč skillu (I, P alebo C)
+ * @param {number} amount - Množstvo LP na investíciu
+ * @param {object} robotObj - Robot objekt s learningPoints hodnotou
+ * @returns {object} - { success, newLevel, remainingLP, message }
+ */
+export async function investSkillEnergyFromLP(playerId, skillKey, amount, robotObj) {
+    const validStats = ['I', 'P', 'C'];  // Len I, P, C z LP
+    if (!validStats.includes(skillKey)) {
+        return { success: false, message: 'Tento skill sa nemôže investovať z Learning Points' };
+    }
+    
+    if (amount <= 0) {
+        return { success: false, message: 'Množstvo musí byť väčšie ako 0' };
+    }
+    
+    // Skontroluj či má dostatok Learning Points
+    if (!robotObj || robotObj.learningPoints < amount) {
+        return { success: false, message: 'Nedostatok Learning Points' };
+    }
+    
     try {
-        const res = await fetch('player_quests.json');
+        const res = await fetchNoCacheHelper('player_quests.json');
         const data = await res.json();
         const player = data.find(q => q.playerId === playerId);
-        if (!player) throw new Error("Player does not exist");
+        
+        if (!player) throw new Error('Player does not exist');
+        
+        // Inicializuj skills ak neexistujú
         if (!player.skills) player.skills = {};
-        const current = player.skills[statKey] || { base: 3, bonus: 0 };
-        Object.assign(current, updates);
-        current.base = Math.max(0, Math.min(10, current.base));
-        current.bonus = Math.max(0, Math.min(10, current.bonus));
-        player.skills[statKey] = current;
+        
+        // Inicializuj konkrétny skill
+        if (!player.skills[skillKey]) {
+            player.skills[skillKey] = { investedEnergy: 0, level: 0 };
+        }
+        
+        const skill = player.skills[skillKey];
+        const oldLevel = skill.level || 0;
+        
+        // Pridaj investovanú energiu (LP sa ukladajú ako energia)
+        skill.investedEnergy = (skill.investedEnergy || 0) + amount;
+        
+        // Prepočítaj level
+        skill.level = calculateSkillLevel(skill.investedEnergy);
+        const newLevel = skill.level;
+        
+        // Zníž Learning Points
+        robotObj.learningPoints -= amount;
+        player.learningPoints = robotObj.learningPoints;
+        
+        // Ulož zmeny
         if (window.saveLocalJson) {
             await window.saveLocalJson('player_quests.json', data);
-            console.log(`Skill ${statKey} updated:`, current);
-            return true;
+            
+            console.log(`[Skills] Investovaných ${amount} LP do ${skillKey}`);
+            console.log(`[Skills] Level: ${oldLevel} → ${newLevel}`);
+            console.log(`[Skills] Celková investícia: ${skill.investedEnergy} LP`);
+            
+            // Dispatch event pre UI update
+            window.dispatchEvent(new CustomEvent('skillsUpdated', {
+                detail: {
+                    skillKey,
+                    oldLevel,
+                    newLevel,
+                    investedEnergy: skill.investedEnergy,
+                    learningPoints: robotObj.learningPoints
+                }
+            }));
+            
+            return {
+                success: true,
+                newLevel,
+                oldLevel,
+                remainingLP: robotObj.learningPoints,
+                investedEnergy: skill.investedEnergy,
+                message: newLevel > oldLevel ? `Level UP! ${skillKey}: ${newLevel}` : 'Learning Points investované'
+            };
         } else {
             throw new Error('saveLocalJson helper nie je dostupný!');
         }
     } catch (error) {
-        console.error("Error: Failed to update skill:", error);
-        return false;
+        console.error('[Skills] Error investing LP:', error);
+        return { success: false, message: 'Chyba pri investovaní Learning Points' };
     }
+}
+
+// Legacy funkcie (zachované pre backward compatibility, ale deprecated)
+export async function allocateSkillPoint(playerId, statKey) {
+    console.warn('[Skills] allocateSkillPoint is DEPRECATED - použite investSkillEnergy()');
+    return { success: false, message: 'Deprecated function' };
+}
+
+export async function updateSkill(playerId, statKey, updates) {
+    console.warn('[Skills] updateSkill is DEPRECATED - použite investSkillEnergy()');
+    return false;
 }
 
 /**
@@ -562,7 +995,7 @@ export async function useInventoryItem(playerId, itemType) {
                 if (!playerDoc.exists()) return;
 
                 const currentAccumulator = playerDoc.data()?.accumulator || 0;
-                const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+                const maxAccumulator = playerDoc.data()?.accumulatorMax || 1000;
                 const newAccumulator = Math.min(currentAccumulator + 100, maxAccumulator);
 
                 transaction.update(playerRef, {
@@ -577,7 +1010,7 @@ export async function useInventoryItem(playerId, itemType) {
                 if (!playerDoc.exists()) return;
 
                 const currentAccumulator = playerDoc.data()?.accumulator || 0;
-                const maxAccumulator = playerDoc.data()?.accumulatorMax || 10000;
+                const maxAccumulator = playerDoc.data()?.accumulatorMax || 1000;
                 const newAccumulator = Math.min(currentAccumulator + 50, maxAccumulator);
 
                 transaction.update(playerRef, {
@@ -802,6 +1235,17 @@ export async function completeQuest(playerId, questId, questData) {
             }
             if (questData.rewards.skillPoints) {
                 player.skillPoints = (player.skillPoints || 0) + questData.rewards.skillPoints;
+            }
+            if (questData.rewards.learningPoints) {
+                player.learningPoints = (player.learningPoints || 0) + questData.rewards.learningPoints;
+                const maxLP = player.maxLearningPoints || 5000;
+                if (player.learningPoints > maxLP) {
+                    player.learningPoints = maxLP;
+                }
+                // Dispatch event pre HUD update
+                window.dispatchEvent(new CustomEvent('learningPointsUpdated', {
+                    detail: { lp: player.learningPoints, maxLP: maxLP }
+                }));
             }
             // TODO: Add items to inventory if needed
         }

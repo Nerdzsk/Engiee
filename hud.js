@@ -156,3 +156,43 @@ export function showQuestNotification(questTitle, message = "bol pridaný do den
         }, 500);
     }, 4000);
 }
+
+// Learning Points HUD update
+export function updateLearningPointsHUD(lp, maxLP) {
+    const lpOrb = document.getElementById('learning-orb');
+    const lpText = document.getElementById('lp-text');
+    
+    const safeMax = Math.max(1, maxLP || 1);
+    const percent = (lp / safeMax) * 100;
+    const clampedPercent = Math.max(0, Math.min(100, percent));
+    
+    if (lpOrb) {
+        lpOrb.style.setProperty('--fill-percent', clampedPercent + '%');
+    }
+    
+    if (lpText) {
+        lpText.innerText = `${Math.round(lp)} / ${maxLP} LP`;
+    }
+}
+
+// 7. Toast pre odomknutie perku
+export function showPerkUnlockedToast(title = 'Perk odomknutý', description = '') {
+    const notification = document.getElementById('perk-notification');
+    const titleEl = document.getElementById('perk-notification-title');
+    const textEl = document.getElementById('perk-notification-text');
+
+    if (!notification || !titleEl || !textEl) {
+        console.warn('Perk notification elements not found');
+        return;
+    }
+
+    titleEl.innerText = title;
+    textEl.innerText = description || '+50 k max kapacite batérie';
+
+    notification.classList.remove('hidden', 'slide-out');
+    setTimeout(() => {
+        notification.classList.add('slide-out');
+        setTimeout(() => notification.classList.add('hidden'), 500);
+    }, 4000);
+}
+

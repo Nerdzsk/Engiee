@@ -86,6 +86,16 @@
         <!-- ACC Text pod accumulator orbom -->
         <div class="accumulator-orb-display" id="accumulator-orb-display">ACC: 0 / 0</div>
 
+        <!-- LEARNING POINTS ORB: Fialový orb pre learning points -->
+        <div class="learning-orb" id="learning-orb">
+            <img class="energy-orb-img" src="./assets/Rusted/HUD_accumulator_Orb_Rusted.png" alt="Learning Orb">
+            <div class="energy-orb-liquid learning-liquid" id="learning-orb-liquid"></div>
+        </div>
+        <!-- LP Text pod learning orbom -->
+        <div class="learning-orb-display" id="learning-orb-display">
+            <span id="lp-text">LP: 0 / 5000</span>
+        </div>
+
         <!-- LEFT MODULE: Orb + Energy bar -->
         <div class="hud-left">
             <!-- Base Energy Orb (Tier Rusted) [teraz vyššie v HTML] -->
@@ -128,6 +138,11 @@
         <div class="skills-modal-header">
             <h2>SPECIAL ATTRIBUTES</h2>
             <button id="skills-close-btn" class="skills-close-btn">✕</button>
+        </div>
+        <div class="skills-modal-tabs">
+            <button class="skill-tab active" data-tab="special">⚡ SPECIAL ATTRIBUTES</button>
+            <button class="skill-tab" data-tab="perks">🎯 PERKS</button>
+            <button class="skill-tab" data-tab="fitness">💪 FITNESS</button>
         </div>
         <div id="skills-panel-content" class="skills-panel-content"></div>
     </div>
@@ -200,12 +215,24 @@
     </div>
 </div>
 
+<!-- INTERACTION PROMPT (zobrazí sa pri možnosti interakcie) -->
+<div id="interaction-prompt" class="interaction-prompt"></div>
+
 <!-- QUEST NOTIFICATION (toast notification for quest events) -->
 <div id="quest-notification" class="quest-notification hidden">
     <div class="quest-notification-icon">📜</div>
     <div class="quest-notification-content">
         <div class="quest-notification-title">Nový Quest!</div>
         <div id="quest-notification-text" class="quest-notification-text"></div>
+    </div>
+</div>
+
+<!-- PERK NOTIFICATION (toast notification for perk unlocks) -->
+<div id="perk-notification" class="perk-notification hidden">
+    <div class="perk-notification-icon">🎯</div>
+    <div class="perk-notification-content">
+        <div id="perk-notification-title" class="perk-notification-title">Perk odomknutý!</div>
+        <div id="perk-notification-text" class="perk-notification-text"></div>
     </div>
 </div>
 

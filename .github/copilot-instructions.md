@@ -31,9 +31,27 @@
 - **Použitie v hre**: Kroky z pedometra sa dajú použiť na dobíjanie akumulátora robota
 - **Energetický systém**:
   - **Batéria robota**: Hlavný hráčov robot má vlastnú batériu s obmedzenou kapacitou
-  - **Akumulátor (súčiastka)**: Špeciálna súčiastka, ktorá dokáže skladovať energiu
+  - **Akumulátor (ACC - súčiastka)**: Špeciálna súčiastka, ktorá dokáže skladovať energiu z krokov
   - **Dobíjanie z krokov**: Kroky z pedometra sa prevádzajú na energiu a ukladajú do akumulátora
   - **Presun energie**: Hráč môže presúvať energiu medzi akumulátorom a batériou robota
+  - **ACC investovanie**: ACC energiu možno investovať do Strength (S) a Endurance (E) skills
+
+### Learning Points systém (nový - 22.1.2026)
+- **Funkcia**: Druhá mena v hre, získavaná z questov
+- **Tok dát**: Quest completion → player_quests.json → LP orb update
+- **Použitie v hre**: LP sa dajú použiť na investovanie do mentálnych skills
+- **LP systém**:
+  - **Learning Points (LP)**: Mena získavaná za dokončenie questov
+  - **LP Orb**: Fialový orb vpravo hore (max 5000 LP)
+  - **LP investovanie**: LP energiu možno investovať do Intelligence (I), Perception (P), Charisma (C)
+  - **Quest rewards**: Každý quest má definované `learningPoints` v rewards (50, 20, 15)
+  - **Vizuálna identifikácia**: Fialová farba (#c864ff) pre LP vs modrá (#00ffff) pre ACC
+
+### SPECIAL Skills rozdelenie
+- **ACC Skills** (Accumulator - z pedometra): Strength (S), Endurance (E)
+- **LP Skills** (Learning Points - z questov): Intelligence (I), Perception (P), Charisma (C)
+- **Locked Skills** (zatiaľ nedostupné): Agility (A), Luck (L)
+- **Budúca expanzia**: LUCK Points z rewarded ads (AdMob) pre A a L skills
 
 ### Technológie a stack
 - **Frontend**: HTML, CSS, JavaScript (možno React/Vue)
@@ -106,12 +124,17 @@
 - `setAccumulator(value)` - nastav ACC hodnotu
 - `fillAccumulator()` / `emptyAccumulator()` - naplň/vyprázdni ACC
 - `setEnergy(value)` - nastav HP hodnotu
+- `robot.learningPoints` - LP hodnota (môžeš manuálne zmeniť pre testovanie)
+- `robot.skills` - všetky SPECIAL skills a ich levely
 
 ## Coding štandardy pre tento projekt
 - Pri pridávaní Firebase kódu: **Len pre pedometer**, nie pre gameplay logiku
 - Pri grafických úpravách: Používať PBR materiály (metalness/roughness)
 - Pri kolíziách: Preferuj kruhové kolízie pre objekty s rotáciou
 - Pri kamerových úpravách: Zachovať dynamickú výšku podľa vzdialenosti
+- **Pri skills systéme**: Rozlišuj medzi ACC (S,E) a LP (I,P,C) - nepoužívaj `investSkillEnergy()` pre LP skills!
+- **Pri event dispatchingu**: Používaj CustomEvent s detail objektom pre všetky update eventy
+- **Pri CSS layout**: Skills modal nesmie mať scrollbars - všetko musí byť viditeľné naraz (5-column grid)
 
 
 ---
@@ -196,4 +219,84 @@ resetWorldScene()       // Reset scény (pre NEW GAME)
 - `[Intro]` – intro dialog systém
 - `[Quest]` – quest operácie
 - `[resetWorldScene]` – scéna rendering
-- `[Firebase]` – pedometer real-time updates
+- `[Firebase]` – pedometer real-time updates- `[Pedometer]` – pedometer logika, total energy tracking
+
+---
+
+## SKILLS MODAL TAB SYSTEM (Jan 23, 2026)
+
+### Tri taby v Skills Modale
+1. **⚡ SPECIAL ATTRIBUTES** - Investovanie do skills (S,P,E,C,I,A,L)
+2. **🎯 PERKS** - Placeholder pre budúce perky (založené na achievements)
+3. **💪 FITNESS** - Pedometer tracking a fitness štatistiky
+
+### Tab implementácia
+- **HTML**: `<div class="skills-modal-tabs">` s buttonmi `data-tab="special|perks|fitness"`
+- **JavaScript**: `currentTab` state variable, routing v `updateSkillsDisplay()`
+- **Render funkcie**: `renderSpecialTab()`, `renderPerksTab()`, `renderFitnessTab()`
+
+### FITNESS Tab - Total Pedometer Energy System
+
+#### Koncept
+- **Current Accumulator** (modrý panel) - aktuálna energia v ACC, znižuje sa pri investovaní/transfere
+- **Total Pedometer Energy** (zelený panel) - celková energia od NEW GAME, **nikdy sa neznižuje**
+- Total = Firebase hodnota (mirror), ukazuje reálny progres z krokov
+
+#### Kľúčové vlastnosti
+- `robot.totalPedometerEnergy` - sledované v robot objekte aj JSON
+- Pri NEW GAME: `totalPedometerEnergy = 0` (resetuje sa v `resetGame()`)
+- Pri nových krokoch: Total = Firebase hodnota (nie prírastok!)
+- Pri investovaní: Current klesne, Total zostane (ukazuje celkové kroky od začiatku)
+
+#### Logika watchPedometerSteps (KRITICKÁ)
+```javascript
+// SPRÁVNA logika - používa lastKnownFirebaseValue z Total, nie z Current!
+let lastKnownFirebaseValue = robotObj.totalPedometerEnergy || 0;
+
+// Pri Firebase update:
+if (firebaseAccumulator > lastKnownFirebaseValue) {
+    const energyGained = firebaseAccumulator - lastKnownFirebaseValue;
+    robotObj.accumulator += energyGained;  // Pridaj len rozdiel
+    robotObj.totalPedometerEnergy = firebaseAccumulator;  // Mirror Firebase
+    lastKnownFirebaseValue = firebaseAccumulator;  // Update tracker
+}
+```
+
+**Prečo je to dôležité:**
+- Ak by sme porovnávali s `robotObj.accumulator`, investovanie by sa resetovalo pri ďalších krokoch
+- `lastKnownFirebaseValue` sleduje Firebase stav, nie lokálny ACC stav
+- Pri refreshi stránky sa inicializuje z `totalPedometerEnergy`, nie z `accumulator`
+
+#### Príklad scenára
+```
+1. Začnem: Current = 62, Total = 62, Firebase = 62
+2. Investujem 12 EP → Current = 50, Total = 62, Firebase = 62
+3. Refresh → Načíta: Current = 50, Total = 62
+4. lastKnownFirebaseValue = 62 (z Total!)
+5. Nové kroky → Firebase = 65
+6. energyGained = 65 - 62 = 3
+7. Current = 50 + 3 = 53 ✓
+8. Total = 65 ✓
+```
+
+### CSS Problémy a riešenia - Skill Investment Controls
+
+#### Problém: Input fieldy a buttony nereagovali na kliky
+**Príčina**: Hover efekty na `.skill-investment-card` zvyšovali `z-index: 100` a blokovali pointer events
+
+**Riešenie (Jan 23, 2026):**
+1. **Odstránený hover efekt** na `.skill-investment-card:hover` (transform, scale, z-index)
+2. **Odstránený `::before` pseudo-element** - overlay blokoval kliky
+3. **Explicitné pointer-events a z-index**:
+   ```css
+   .skill-invest-controls { z-index: 150 !important; pointer-events: auto !important; }
+   .invest-input { z-index: 150 !important; pointer-events: auto !important; cursor: text !important; }
+   .invest-btn { z-index: 150 !important; pointer-events: auto !important; cursor: pointer !important; }
+   .invest-all-btn { z-index: 150 !important; pointer-events: auto !important; }
+   ```
+
+**Lesson Learned**: Pri komplexných UI s prekrývajúcimi elementmi:
+- Používaj explicitné `pointer-events: auto !important` na interaktívne elementy
+- Daj im vyšší `z-index` ako околiu
+- Odstráň zbytočné hover efekty, ktoré menia z-index
+- Pozor na `::before` / `::after` pseudo-elementy - môžu blokovať kliky
